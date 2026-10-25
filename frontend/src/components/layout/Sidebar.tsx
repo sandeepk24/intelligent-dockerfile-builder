@@ -5,6 +5,7 @@ import {
   History,
   Settings,
   Container,
+  Code2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StatusIndicator } from "@/components/common/StatusIndicator";
@@ -13,6 +14,7 @@ import { useHealth } from "@/api/queries";
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/new", icon: FilePlus, label: "New Dockerfile" },
+  { to: "/workspace", icon: Code2, label: "Workspace" },
   { to: "/history", icon: History, label: "History" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];

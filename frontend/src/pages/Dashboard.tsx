@@ -11,11 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/Ca
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Spinner } from "@/components/common/Spinner";
-import { useHealth, useModels } from "@/api/queries";
+import { useDockerfileHistory, useHealth, useModels } from "@/api/queries";
 
 export function Dashboard() {
   const { data: health, isLoading: healthLoading } = useHealth();
   const { data: modelsData, isLoading: modelsLoading } = useModels();
+  const { data: history } = useDockerfileHistory();
+  const generatedCount = history?.items.length ?? 0;
+  const recent = history?.items.slice(0, 5) ?? [];
 
   return (
     <div>
@@ -37,14 +40,14 @@ export function Dashboard() {
           <StatsCard
             icon={Container}
             title="Dockerfiles Generated"
-            value="0"
-            description="Total generated"
+            value={String(generatedCount)}
+            description="This session"
           />
           <StatsCard
             icon={CheckCircle2}
             title="Successful Builds"
-            value="0"
-            description="Validated builds"
+            value="—"
+            description="Validation arrives in Milestone 3"
           />
           <StatsCard
             icon={Clock}
@@ -158,6 +161,28 @@ export function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {recent.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Latest generation activity</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {recent.map((item) => (
+                <Link
+                  key={item.id}
+                  to={`/workspace/${item.id}`}
+                  className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-accent/40"
+                >
+                  <span>{item.project_name || item.project_id}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {item.status} · {new Date(item.created_at).toLocaleTimeString()}
+                  </span>
+                </Link>
+              ))}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Quick actions */}
         <Card>

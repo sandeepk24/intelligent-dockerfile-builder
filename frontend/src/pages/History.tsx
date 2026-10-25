@@ -1,27 +1,76 @@
+import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent } from "@/components/common/Card";
-import { History as HistoryIcon } from "lucide-react";
+import { Badge } from "@/components/common/Badge";
+import { Spinner } from "@/components/common/Spinner";
+import { useDockerfileHistory } from "@/api/queries";
 
 export function History() {
+  const { data, isLoading, error } = useDockerfileHistory();
+  const items = data?.items ?? [];
+
   return (
     <div>
       <Header
         title="History"
-        description="Previously generated Dockerfiles and their validation status"
+        description="Previously generated Dockerfiles for this session"
       />
       <div className="p-8">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-20">
-            <HistoryIcon className="mb-4 h-12 w-12 text-muted-foreground" />
-            <p className="text-lg font-medium text-muted-foreground">
-              No history yet
-            </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Generated Dockerfiles will appear here.
-              Full history with SQLite persistence comes in Milestone 4.
-            </p>
-          </CardContent>
-        </Card>
+        {isLoading ? (
+          <div className="flex justify-center py-16">
+            <Spinner />
+          </div>
+        ) : error ? (
+          <p className="text-sm text-destructive">
+            {error instanceof Error ? error.message : "Could not load history"}
+          </p>
+        ) : items.length === 0 ? (
+          <Card>
+            <CardContent className="py-16 text-center text-sm text-muted-foreground">
+              No Dockerfiles generated yet. Create one from New Dockerfile.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Project</th>
+                  <th className="px-4 py-3 font-medium">Stack</th>
+                  <th className="px-4 py-3 font-medium">Model</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id} className="border-t border-border hover:bg-accent/30">
+                    <td className="px-4 py-3">
+                      <Link
+                        to={`/workspace/${item.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {item.project_name || item.project_id}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {[item.language, item.framework].filter(Boolean).join(" / ") || "—"}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">{item.model}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={item.status === "edited" ? "warning" : "success"}>
+                        {item.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {new Date(item.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
