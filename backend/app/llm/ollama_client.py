@@ -1,14 +1,18 @@
 """Ollama REST API client."""
 
+from typing import Any
+
 import httpx
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.llm.json_parser import parse_json_response
+from app.llm.provider import LLMProvider
 
 logger = get_logger(__name__)
 
 
-class OllamaClient:
+class OllamaClient(LLMProvider):
     """Async client for the Ollama REST API."""
 
     def __init__(self, base_url: str | None = None, timeout: int | None = None) -> None:
@@ -25,7 +29,7 @@ class OllamaClient:
             logger.warning("Ollama server not reachable at %s", self.base_url)
             return False
 
-    async def list_models(self) -> list[dict]:
+    async def list_models(self) -> list[dict[str, Any]]:
         """List locally available models."""
         try:
             async with httpx.AsyncClient(timeout=10) as client:
@@ -39,7 +43,7 @@ class OllamaClient:
 
     async def generate(self, model: str, prompt: str, system: str | None = None) -> str:
         """Generate a completion from Ollama (non-streaming)."""
-        payload: dict = {
+        payload: dict[str, Any] = {
             "model": model,
             "prompt": prompt,
             "stream": False,
@@ -52,6 +56,26 @@ class OllamaClient:
             resp.raise_for_status()
             data = resp.json()
             return data.get("response", "")
+
+    async def generate_json(
+        self, model: str, prompt: str, system: str | None = None
+    ) -> dict[str, Any]:
+        """Generate a JSON object using Ollama's JSON output mode."""
+        payload: dict[str, Any] = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": 0.1},
+        }
+        if system:
+            payload["system"] = system
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.post(f"{self.base_url}/api/generate", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            return parse_json_response(data.get("response", ""))
 
 
 ollama_client = OllamaClient()
