@@ -3,7 +3,15 @@
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.db.memory_store import store
 from app.main import app
+
+
+@pytest.fixture(autouse=True)
+def reset_store():
+    store.clear()
+    yield
+    store.clear()
 
 
 @pytest.fixture

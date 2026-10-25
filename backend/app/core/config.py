@@ -1,6 +1,11 @@
 """Application configuration using Pydantic Settings."""
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_WORKSPACE = str(_REPO_ROOT / "sample-projects")
 
 
 class Settings(BaseSettings):
@@ -34,7 +39,7 @@ class Settings(BaseSettings):
     docker_build_memory_limit: str = "2g"
 
     # Workspace
-    workspace_root: str = "/tmp/intelligent-dockerfile-workspace"
+    workspace_root: str = _DEFAULT_WORKSPACE
 
     # Upload
     max_upload_size_mb: int = 50
