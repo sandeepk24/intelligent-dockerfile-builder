@@ -6,6 +6,8 @@ import { NewDockerfile } from "@/pages/NewDockerfile";
 import { Workspace } from "@/pages/Workspace";
 import { History } from "@/pages/History";
 import { Settings } from "@/pages/Settings";
+import { ToastProvider } from "@/hooks/useToast";
+import { ToastViewport } from "@/components/common/Toast";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,18 +21,21 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/new" element={<NewDockerfile />} />
-            <Route path="/workspace" element={<Workspace />} />
-            <Route path="/workspace/:id" element={<Workspace />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/new" element={<NewDockerfile />} />
+              <Route path="/workspace" element={<Workspace />} />
+              <Route path="/workspace/:id" element={<Workspace />} />
+              <Route path="/history" element={<History />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+        <ToastViewport />
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
