@@ -5,12 +5,22 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.dockerfile import DockerfileIssueResponse
+
 
 class AnalyzeDirectoryRequest(BaseModel):
     """Analyze a project under the configured workspace root."""
 
     source_type: Literal["directory"] = "directory"
     path: str = Field(..., min_length=1, description="Relative path under WORKSPACE_ROOT")
+
+
+class AnalyzeDockerfileRequest(BaseModel):
+    """Review a pasted Dockerfile without a full project tree."""
+
+    source_type: Literal["dockerfile"] = "dockerfile"
+    dockerfile: str = Field(..., min_length=8, max_length=200_000)
+    name: str | None = Field(default=None, max_length=120)
 
 
 class WorkspaceProject(BaseModel):
@@ -39,5 +49,7 @@ class ProjectAnalysisResponse(BaseModel):
     build_command: str | None = None
     start_command: str | None = None
     has_dockerfile: bool = False
+    existing_dockerfile: str | None = None
+    dockerfile_issues: list[DockerfileIssueResponse] = Field(default_factory=list)
     file_tree: list[str] = Field(default_factory=list)
     created_at: datetime

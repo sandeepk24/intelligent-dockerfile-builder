@@ -8,6 +8,7 @@ from app.schemas.dockerfile import (
     DockerfileResponse,
     GenerateDockerfileRequest,
     JobResponse,
+    OptimizeDockerfileRequest,
     UpdateDockerfileRequest,
 )
 from app.services import generation as generation_service
@@ -33,6 +34,30 @@ async def generate_dockerfile(
         job.id,
         body.project_id,
         model,
+        body.instructions,
+    )
+    return generation_service.to_job_response(job)
+
+
+@router.post(
+    "/dockerfiles/optimize", response_model=JobResponse, status_code=status.HTTP_202_ACCEPTED
+)
+async def optimize_dockerfile(
+    body: OptimizeDockerfileRequest,
+    background_tasks: BackgroundTasks,
+) -> JobResponse:
+    try:
+        job = generation_service.create_optimize_job(body.project_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    model = body.model or settings.ollama_default_model
+    background_tasks.add_task(
+        generation_service.run_optimize_job,
+        job.id,
+        body.project_id,
+        model,
+        body.dockerfile,
         body.instructions,
     )
     return generation_service.to_job_response(job)

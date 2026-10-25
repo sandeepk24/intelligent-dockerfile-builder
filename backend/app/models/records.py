@@ -44,6 +44,8 @@ class DockerfileRecord:
     model: str
     instructions: str | None = None
     status: str = "generated"
+    original_dockerfile: str | None = None
+    issues: list[dict] = field(default_factory=list)
     created_at: datetime = field(default_factory=utcnow)
     updated_at: datetime = field(default_factory=utcnow)
 

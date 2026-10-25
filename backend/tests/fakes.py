@@ -23,7 +23,7 @@ class FakeLLMProvider:
         self, model: str, prompt: str, system: str | None = None
     ) -> dict[str, Any]:
         self.prompts.append(prompt)
-        return {
+        payload = {
             "dockerfile": (
                 "FROM python:3.12-slim\n"
                 "WORKDIR /app\n"
@@ -37,4 +37,15 @@ class FakeLLMProvider:
             ),
             "explanation": "Slim Python image with dependency caching and a non-root user.",
             "decisions": ["Use python:3.12-slim", "Install deps before copying source"],
+            "issues": [],
         }
+        if "Known issues from static review" in prompt:
+            payload["explanation"] = (
+                "Replaced python:latest, dropped root, stopped copying .env, and pinned a slim base image."
+            )
+            payload["decisions"] = [
+                "Pin python:3.12-slim instead of latest",
+                "Do not copy .env into the image",
+                "Run as a non-root user",
+            ]
+        return payload

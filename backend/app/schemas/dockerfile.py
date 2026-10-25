@@ -5,8 +5,24 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+class DockerfileIssueResponse(BaseModel):
+    code: str
+    severity: str
+    title: str
+    detail: str
+    suggestion: str
+    line: int | None = None
+
+
 class GenerateDockerfileRequest(BaseModel):
     project_id: str
+    model: str | None = None
+    instructions: str | None = Field(default=None, max_length=4000)
+
+
+class OptimizeDockerfileRequest(BaseModel):
+    project_id: str
+    dockerfile: str | None = Field(default=None, max_length=200_000)
     model: str | None = None
     instructions: str | None = Field(default=None, max_length=4000)
 
@@ -37,6 +53,8 @@ class DockerfileResponse(BaseModel):
     model: str
     instructions: str | None = None
     status: str
+    original_dockerfile: str | None = None
+    issues: list[DockerfileIssueResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

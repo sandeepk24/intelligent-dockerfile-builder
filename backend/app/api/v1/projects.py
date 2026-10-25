@@ -1,5 +1,7 @@
 """Project analysis endpoints."""
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request, status
 from starlette.datastructures import UploadFile
 
@@ -8,6 +10,7 @@ from app.core.config import settings
 from app.core.paths import WorkspacePathError, workspace_root
 from app.schemas.project import (
     AnalyzeDirectoryRequest,
+    AnalyzeDockerfileRequest,
     ProjectAnalysisResponse,
     WorkspaceListResponse,
 )
@@ -33,8 +36,14 @@ async def analyze_project(request: Request) -> ProjectAnalysisResponse:
         if content_type.startswith("multipart/form-data"):
             project = await _analyze_upload(request)
         else:
-            payload = AnalyzeDirectoryRequest.model_validate(await request.json())
-            project = analysis_service.analyze_directory(payload.path)
+            body = await request.json()
+            source_type = body.get("source_type", "directory")
+            if source_type == "dockerfile":
+                payload = AnalyzeDockerfileRequest.model_validate(body)
+                project = analysis_service.analyze_dockerfile_text(payload.dockerfile, payload.name)
+            else:
+                payload = AnalyzeDirectoryRequest.model_validate(body)
+                project = analysis_service.analyze_directory(payload.path)
     except WorkspacePathError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except FileNotFoundError as exc:
@@ -70,9 +79,13 @@ async def _analyze_upload(request: Request):
             detail="ZIP exceeds the configured upload size limit",
         )
     filename = upload.filename or "project.zip"
-    if not filename.lower().endswith(".zip"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .zip archives are accepted",
-        )
-    return analysis_service.analyze_zip_bytes(content, filename)
+    lowered = filename.lower()
+    if lowered.endswith(".zip"):
+        return analysis_service.analyze_zip_bytes(content, filename)
+    if lowered in {"dockerfile", "dockerfile.txt"} or lowered.endswith(".dockerfile"):
+        text = content.decode("utf-8", errors="replace")
+        return analysis_service.analyze_dockerfile_text(text, Path(filename).stem)
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Upload a .zip archive or a Dockerfile",
+    )

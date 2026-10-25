@@ -6,11 +6,13 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.analyzers.detector import detect_project
+from app.analyzers.dockerfile_review import issues_to_dicts, review_dockerfile
 from app.analyzers.scanner import scan_project
 from app.analyzers.zip_import import extract_zip
 from app.core.paths import resolve_workspace_path, workspace_root
 from app.db.memory_store import store
 from app.models.records import ProjectRecord
+from app.schemas.dockerfile import DockerfileIssueResponse
 from app.schemas.project import ProjectAnalysisResponse, WorkspaceProject
 
 
@@ -35,6 +37,27 @@ def analyze_directory(relative_path: str) -> ProjectRecord:
     if not root.is_dir():
         raise FileNotFoundError(f"Workspace project not found: {relative_path}")
     return _analyze_root(root, source_type="directory", name=root.name)
+
+
+def analyze_dockerfile_text(content: str, name: str | None = None) -> ProjectRecord:
+    dockerfile = content.strip()
+    if not dockerfile or not any(
+        line.strip().upper().startswith("FROM") for line in dockerfile.splitlines()
+    ):
+        raise ValueError("Provided text is not a Dockerfile (missing FROM)")
+    language = _guess_language(dockerfile)
+    record = ProjectRecord(
+        id=str(uuid4()),
+        source_type="dockerfile",
+        name=name or "pasted-dockerfile",
+        root_path="",
+        language=language,
+        has_dockerfile=True,
+        existing_dockerfile=dockerfile + ("\n" if not dockerfile.endswith("\n") else ""),
+        file_tree=["Dockerfile"],
+        key_files={"Dockerfile": dockerfile[:16_384]},
+    )
+    return store.save_project(record)
 
 
 def analyze_zip_bytes(content: bytes, filename: str) -> ProjectRecord:
@@ -69,6 +92,15 @@ def to_analysis_response(project: ProjectRecord) -> ProjectAnalysisResponse:
         build_command=project.build_command,
         start_command=project.start_command,
         has_dockerfile=project.has_dockerfile,
+        existing_dockerfile=project.existing_dockerfile,
+        dockerfile_issues=[
+            DockerfileIssueResponse.model_validate(item)
+            for item in issues_to_dicts(
+                review_dockerfile(project.existing_dockerfile, ports=project.ports)
+            )
+        ]
+        if project.existing_dockerfile
+        else [],
         file_tree=project.file_tree,
         created_at=project.created_at,
     )
@@ -96,3 +128,14 @@ def _analyze_root(root: Path, *, source_type: str, name: str) -> ProjectRecord:
         key_files=scan.key_files,
     )
     return store.save_project(record)
+
+
+def _guess_language(dockerfile: str) -> str | None:
+    lowered = dockerfile.lower()
+    if "python" in lowered:
+        return "python"
+    if "node" in lowered or "npm" in lowered:
+        return "javascript"
+    if "golang" in lowered or "from go:" in lowered:
+        return "go"
+    return None
