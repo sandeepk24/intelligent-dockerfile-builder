@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FolderOpen, Upload, Sparkles } from "lucide-react";
+import { FolderOpen, Upload, Sparkles, ScanSearch } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import {
   Card,
@@ -15,13 +15,16 @@ import { Spinner } from "@/components/common/Spinner";
 import { useToast } from "@/hooks/useToast";
 import {
   useAnalyzeDirectory,
+  useAnalyzeDockerfile,
   useAnalyzeZip,
   useGenerateDockerfile,
   useHealth,
   useJob,
   useModels,
+  useOptimizeDockerfile,
   useWorkspaceProjects,
 } from "@/api/queries";
+import { IssueList } from "@/components/dockerfile/IssueList";
 import type { ProjectAnalysis } from "@/types/api";
 
 export function NewDockerfile() {
@@ -33,12 +36,15 @@ export function NewDockerfile() {
     useWorkspaceProjects();
   const analyzeDirectory = useAnalyzeDirectory();
   const analyzeZip = useAnalyzeZip();
+  const analyzeDockerfile = useAnalyzeDockerfile();
   const generate = useGenerateDockerfile();
+  const optimize = useOptimizeDockerfile();
 
   const [selectedPath, setSelectedPath] = useState("");
   const [model, setModel] = useState("");
   const [instructions, setInstructions] = useState("");
   const [analysis, setAnalysis] = useState<ProjectAnalysis | null>(null);
+  const [pastedDockerfile, setPastedDockerfile] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const job = useJob(jobId);
 
@@ -52,7 +58,12 @@ export function NewDockerfile() {
     if (job.data?.status === "completed" && job.data.dockerfile_id) {
       const dockerfileId = job.data.dockerfile_id;
       setJobId(null);
-      push("Dockerfile generated", "success");
+      push(
+        job.data.job_type === "optimize"
+          ? "Dockerfile reviewed and optimized"
+          : "Dockerfile generated",
+        "success"
+      );
       navigate(`/workspace/${dockerfileId}`);
     }
     if (job.data?.status === "failed") {
@@ -88,6 +99,28 @@ export function NewDockerfile() {
     }
   }
 
+  async function handleAnalyzeDockerfile() {
+    if (!pastedDockerfile.trim()) {
+      push("Paste a Dockerfile first", "error");
+      return;
+    }
+    try {
+      const result = await analyzeDockerfile.mutateAsync({
+        dockerfile: pastedDockerfile,
+        name: "pasted-dockerfile",
+      });
+      setAnalysis(result);
+      push(
+        result.dockerfile_issues.length
+          ? `Found ${result.dockerfile_issues.length} issue(s)`
+          : "Dockerfile analyzed",
+        result.dockerfile_issues.length ? "info" : "success"
+      );
+    } catch (error) {
+      push(error instanceof Error ? error.message : "Review failed", "error");
+    }
+  }
+
   async function handleGenerate() {
     if (!analysis) {
       push("Analyze a project before generating", "error");
@@ -109,9 +142,39 @@ export function NewDockerfile() {
     }
   }
 
-  const analyzing = analyzeDirectory.isPending || analyzeZip.isPending;
+  async function handleOptimize() {
+    if (!analysis?.existing_dockerfile && !pastedDockerfile.trim()) {
+      push("Provide an existing Dockerfile to review", "error");
+      return;
+    }
+    if (!analysis) {
+      push("Analyze the Dockerfile first", "error");
+      return;
+    }
+    if (!health?.ollama_connected) {
+      push("Ollama is offline. Start it before optimizing.", "error");
+      return;
+    }
+    try {
+      const jobResponse = await optimize.mutateAsync({
+        project_id: analysis.project_id,
+        dockerfile: analysis.existing_dockerfile || pastedDockerfile,
+        model: model || undefined,
+        instructions: instructions.trim() || undefined,
+      });
+      setJobId(jobResponse.job_id);
+    } catch (error) {
+      push(error instanceof Error ? error.message : "Optimize failed", "error");
+    }
+  }
+
+  const analyzing =
+    analyzeDirectory.isPending ||
+    analyzeZip.isPending ||
+    analyzeDockerfile.isPending;
   const generating =
     generate.isPending ||
+    optimize.isPending ||
     job.data?.status === "pending" ||
     job.data?.status === "running";
 
@@ -119,7 +182,7 @@ export function NewDockerfile() {
     <div>
       <Header
         title="New Dockerfile"
-        description="Analyze a project and generate an optimized Dockerfile"
+        description="Generate from source, or review an existing Dockerfile for issues and optimizations"
       />
       <div className="space-y-6 p-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -202,6 +265,37 @@ export function NewDockerfile() {
           </Card>
         </div>
 
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <ScanSearch className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>Existing Dockerfile</CardTitle>
+                <CardDescription>
+                  Paste a Dockerfile to find issues and request an optimized rewrite
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <textarea
+              className="min-h-40 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
+              placeholder="FROM python:latest&#10;COPY . .&#10;CMD python app.py"
+              value={pastedDockerfile}
+              onChange={(event) => setPastedDockerfile(event.target.value)}
+            />
+            <Button
+              onClick={handleAnalyzeDockerfile}
+              disabled={analyzing || !pastedDockerfile.trim()}
+            >
+              {analyzeDockerfile.isPending ? <Spinner size={16} /> : null}
+              Find issues
+            </Button>
+          </CardContent>
+        </Card>
+
         {analysis && (
           <Card>
             <CardHeader>
@@ -227,7 +321,16 @@ export function NewDockerfile() {
               <p className="text-xs text-muted-foreground">
                 {analysis.file_tree.length} files scanned · ports{" "}
                 {analysis.ports.join(", ") || "none detected"}
+                {analysis.has_dockerfile ? " · existing Dockerfile found" : ""}
               </p>
+              {analysis.has_dockerfile && (
+                <div className="space-y-3 border-t border-border pt-4">
+                  <p className="text-sm font-medium">
+                    Existing Dockerfile issues ({analysis.dockerfile_issues.length})
+                  </p>
+                  <IssueList issues={analysis.dockerfile_issues} />
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -279,10 +382,32 @@ export function NewDockerfile() {
                 local LLM is running.
               </p>
             )}
-            <Button onClick={handleGenerate} disabled={!analysis || generating}>
-              {generating ? <Spinner size={16} /> : <Sparkles className="h-4 w-4" />}
-              {generating ? "Generating Dockerfile..." : "Generate Dockerfile"}
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={handleGenerate} disabled={!analysis || generating}>
+                {generating && job.data?.job_type !== "optimize" ? (
+                  <Spinner size={16} />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {generating && job.data?.job_type !== "optimize"
+                  ? "Generating Dockerfile..."
+                  : "Generate from source"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleOptimize}
+                disabled={!analysis?.has_dockerfile || generating}
+              >
+                {generating && job.data?.job_type === "optimize" ? (
+                  <Spinner size={16} />
+                ) : (
+                  <ScanSearch className="h-4 w-4" />
+                )}
+                {generating && job.data?.job_type === "optimize"
+                  ? "Optimizing Dockerfile..."
+                  : "Review and optimize existing"}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

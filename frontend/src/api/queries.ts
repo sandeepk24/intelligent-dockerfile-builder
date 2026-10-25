@@ -66,6 +66,28 @@ export function useGenerateDockerfile() {
   });
 }
 
+export function useAnalyzeDockerfile() {
+  return useMutation({
+    mutationFn: (payload: { dockerfile: string; name?: string }) =>
+      api.post<ProjectAnalysis>("/projects/analyze", {
+        source_type: "dockerfile",
+        dockerfile: payload.dockerfile,
+        name: payload.name,
+      }),
+  });
+}
+
+export function useOptimizeDockerfile() {
+  return useMutation({
+    mutationFn: (payload: {
+      project_id: string;
+      dockerfile?: string;
+      model?: string;
+      instructions?: string;
+    }) => api.post<JobResponse>("/dockerfiles/optimize", payload),
+  });
+}
+
 export function useJob(jobId: string | null) {
   return useQuery<JobResponse>({
     queryKey: ["job", jobId],

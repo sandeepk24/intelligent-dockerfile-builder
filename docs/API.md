@@ -32,8 +32,19 @@ Analyze a project directory or uploaded ZIP.
 
 `path` is relative to `WORKSPACE_ROOT`. Absolute paths and `..` are rejected.
 
-**Request (multipart — ZIP upload):**
-- `file`: ZIP file (max 50MB)
+**Request (JSON — pasted Dockerfile):**
+```json
+{
+  "source_type": "dockerfile",
+  "name": "legacy",
+  "dockerfile": "FROM python:latest\nCMD python app.py\n"
+}
+```
+
+Static issues are returned in `dockerfile_issues` without calling the LLM.
+
+**Request (multipart — ZIP or Dockerfile upload):**
+- `file`: ZIP archive or a file named `Dockerfile`
 
 ZIP members are rejected for path traversal, symlinks, oversize archives, and high compression ratios.
 
@@ -84,11 +95,26 @@ Start a background generation job. The HTTP response returns immediately.
 }
 ```
 
+### POST /dockerfiles/optimize
+Review an existing Dockerfile and generate an optimized rewrite. Uses the project's Dockerfile unless `dockerfile` is provided.
+
+**Request:**
+```json
+{
+  "project_id": "uuid",
+  "dockerfile": "FROM python:latest\\n...",
+  "model": "codellama:7b",
+  "instructions": "Prefer distroless"
+}
+```
+
+**Response 202:** job ID with `job_type: "optimize"`.
+
 ### GET /jobs/{job_id}
-Poll generation status (`pending`, `running`, `completed`, `failed`).
+Poll generation or optimize status (`pending`, `running`, `completed`, `failed`).
 
 ### GET /dockerfiles/{id}
-Retrieve a generated Dockerfile, `.dockerignore`, explanation, and decisions.
+Retrieve a generated or optimized Dockerfile, original file (if any), issues, `.dockerignore`, explanation, and decisions.
 
 ### PUT /dockerfiles/{id}
 Save user edits to Dockerfile and/or `.dockerignore`.

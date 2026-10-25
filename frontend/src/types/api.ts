@@ -27,6 +27,15 @@ export interface WorkspaceListResponse {
   projects: WorkspaceProject[];
 }
 
+export interface DockerfileIssue {
+  code: string;
+  severity: "high" | "medium" | "low" | string;
+  title: string;
+  detail: string;
+  suggestion: string;
+  line: number | null;
+}
+
 export interface ProjectAnalysis {
   project_id: string;
   name: string;
@@ -40,6 +49,8 @@ export interface ProjectAnalysis {
   build_command: string | null;
   start_command: string | null;
   has_dockerfile: boolean;
+  existing_dockerfile: string | null;
+  dockerfile_issues: DockerfileIssue[];
   file_tree: string[];
   created_at: string;
 }
@@ -65,6 +76,8 @@ export interface DockerfileDetail {
   model: string;
   instructions: string | null;
   status: string;
+  original_dockerfile: string | null;
+  issues: DockerfileIssue[];
   created_at: string;
   updated_at: string;
 }

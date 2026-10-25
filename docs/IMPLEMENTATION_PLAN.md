@@ -27,6 +27,7 @@
 - [x] AI explanation display
 - [x] Sample Python FastAPI project for testing
 - [x] Integration tests
+- [x] Review existing Dockerfiles, surface issues, and propose optimizations
 
 ## Milestone 3 — Validation and AI Repair
 

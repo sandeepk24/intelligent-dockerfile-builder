@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Copy, Download, RefreshCw, Save } from "lucide-react";
+import { Copy, Download, RefreshCw, Save, ScanSearch } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/Card";
 import { Button } from "@/components/common/Button";
@@ -13,10 +13,12 @@ import {
   useDockerfile,
   useGenerateDockerfile,
   useJob,
+  useOptimizeDockerfile,
   useSaveDockerfile,
 } from "@/api/queries";
+import { IssueList } from "@/components/dockerfile/IssueList";
 
-type Tab = "dockerfile" | "dockerignore" | "explanation";
+type Tab = "dockerfile" | "original" | "dockerignore" | "explanation" | "issues";
 
 export function Workspace() {
   const { id } = useParams();
@@ -25,6 +27,7 @@ export function Workspace() {
   const { data, isLoading, error } = useDockerfile(id);
   const save = useSaveDockerfile();
   const generate = useGenerateDockerfile();
+  const optimize = useOptimizeDockerfile();
 
   const [tab, setTab] = useState<Tab>("dockerfile");
   const [dockerfile, setDockerfile] = useState("");
@@ -45,7 +48,12 @@ export function Workspace() {
     if (job.data?.status === "completed" && job.data.dockerfile_id) {
       const nextId = job.data.dockerfile_id;
       setJobId(null);
-      push("Regenerated Dockerfile", "success");
+      push(
+        job.data.job_type === "optimize"
+          ? "Dockerfile optimized"
+          : "Regenerated Dockerfile",
+        "success"
+      );
       navigate(`/workspace/${nextId}`);
     }
     if (job.data?.status === "failed") {
@@ -96,8 +104,26 @@ export function Workspace() {
     }
   }
 
+  async function handleOptimize() {
+    if (!data) {
+      return;
+    }
+    try {
+      const jobResponse = await optimize.mutateAsync({
+        project_id: data.project_id,
+        dockerfile: dockerfile,
+        model: data.model,
+        instructions: instructions.trim() || undefined,
+      });
+      setJobId(jobResponse.job_id);
+    } catch (err) {
+      push(err instanceof Error ? err.message : "Optimize failed", "error");
+    }
+  }
+
   const generating =
     generate.isPending ||
+    optimize.isPending ||
     job.data?.status === "pending" ||
     job.data?.status === "running";
 
@@ -150,6 +176,14 @@ export function Workspace() {
             >
               Dockerfile
             </TabButton>
+            {data.original_dockerfile && (
+              <TabButton
+                active={tab === "original"}
+                onClick={() => setTab("original")}
+              >
+                Original
+              </TabButton>
+            )}
             <TabButton
               active={tab === "dockerignore"}
               onClick={() => setTab("dockerignore")}
@@ -161,6 +195,12 @@ export function Workspace() {
               onClick={() => setTab("explanation")}
             >
               Explanation
+            </TabButton>
+            <TabButton
+              active={tab === "issues"}
+              onClick={() => setTab("issues")}
+            >
+              Issues{data.issues.length ? ` (${data.issues.length})` : ""}
             </TabButton>
             <Badge variant="outline">{data.status}</Badge>
           </div>
@@ -179,6 +219,21 @@ export function Workspace() {
                 </ul>
               </CardContent>
             </Card>
+          ) : tab === "issues" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Findings and suggestions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <IssueList issues={data.issues} />
+              </CardContent>
+            </Card>
+          ) : tab === "original" && data.original_dockerfile ? (
+            <DockerfileEditor
+              language="dockerfile"
+              value={data.original_dockerfile}
+              readOnly
+            />
           ) : (
             <DockerfileEditor
               language={tab === "dockerfile" ? "dockerfile" : "plaintext"}
@@ -214,7 +269,15 @@ export function Workspace() {
               />
               <Button onClick={handleRegenerate} disabled={generating}>
                 {generating ? <Spinner size={16} /> : <RefreshCw className="h-4 w-4" />}
-                {generating ? "Regenerating..." : "Regenerate"}
+                {generating ? "Working..." : "Regenerate from source"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleOptimize}
+                disabled={generating}
+              >
+                {generating ? <Spinner size={16} /> : <ScanSearch className="h-4 w-4" />}
+                Review and optimize this file
               </Button>
             </CardContent>
           </Card>
@@ -252,7 +315,7 @@ function TabButton({
 }: {
   active: boolean;
   onClick: () => void;
-  children: string;
+  children: ReactNode;
 }) {
   return (
     <button

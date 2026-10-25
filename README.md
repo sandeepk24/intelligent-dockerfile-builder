@@ -2,11 +2,11 @@
 
 A local, AI-assisted tool for turning an application into a production-oriented Dockerfile.
 
-You point it at a project. It inspects the source, detects the language and how the app starts, then asks a local LLM (Ollama) to write a Dockerfile and `.dockerignore`. You review the result in a Monaco editor, edit it, download it, or regenerate it with extra instructions.
+You point it at a project. It inspects the source, detects the language and how the app starts, then asks a local LLM (Ollama) to write a Dockerfile and `.dockerignore`. If a Dockerfile already exists, it finds issues and proposes an optimized rewrite with suggestions. You review the result in a Monaco editor, edit it, download it, or regenerate it with extra instructions.
 
 No paid LLM APIs. Nothing leaves your machine except the local Ollama call.
 
-**Status:** Milestones 1 and 2 are working (analyze + generate). Docker build validation, Hadolint, Trivy, and AI repair are next.
+**Status:** Milestones 1 and 2 are working (analyze, generate, and review/optimize). Docker build validation, Hadolint, Trivy, and AI repair of failed builds are next.
 
 ---
 
@@ -37,8 +37,42 @@ Sample apps are included so you can try this immediately:
 - `sample-projects/python-fastapi`
 - `sample-projects/node-express`
 - `sample-projects/go-api`
+- `sample-projects/python-unoptimized` — FastAPI app with a messy Dockerfile for the review flow
 
-### 2. Generate a Dockerfile with a local model
+### 2. Review and optimize an existing Dockerfile
+
+Use this when you already have a Dockerfile and want findings plus a safer rewrite.
+
+Provide the file in any of these ways:
+
+- analyze a workspace project that already contains a `Dockerfile`
+- upload a ZIP that includes one
+- paste the Dockerfile into **Existing Dockerfile** on the New Dockerfile page
+
+Static review runs immediately (no model required) and flags problems such as:
+
+| Finding | Why it matters |
+|---------|----------------|
+| `:latest` or untagged base image | Builds are not reproducible |
+| Missing `USER` / `USER root` | Process runs as root |
+| `ADD` for local files | Unexpected archive/URL behavior |
+| Copying `.env`, keys, or credentials | Secrets land in image layers |
+| `pip install` without `--no-cache-dir` | Larger, dirtier images |
+| Full `COPY . .` before dependencies | Broken layer caching |
+| Piping `curl` into a shell | Unverified remote code |
+| No `CMD`/`ENTRYPOINT` | Image has no default process |
+
+Then click **Review and optimize existing**. Ollama produces:
+
+- an optimized Dockerfile
+- an explanation of what changed
+- suggestions merged with the static findings
+
+The Workspace keeps the **original** file next to the optimized version so you can compare.
+
+Try it: New Dockerfile → `python-unoptimized` → Analyze → Review and optimize existing.
+
+### 3. Generate a Dockerfile with a local model
 
 After analysis, choose an Ollama model and optionally add instructions such as “prefer distroless” or “expose 8080”.
 
@@ -64,13 +98,13 @@ Typical Dockerfile goals the prompt enforces:
 - only detected ports exposed
 - a correct startup command for the detected framework
 
-### 3. Review, edit, and take the files away
+### 4. Review, edit, and take the files away
 
 The **Workspace** page opens a Monaco editor with syntax highlighting.
 
 You can:
 
-- switch between `Dockerfile`, `.dockerignore`, and the AI explanation
+- switch between `Dockerfile`, original file, `.dockerignore`, explanation, and issues
 - edit the generated files
 - save edits back to history
 - copy the Dockerfile
@@ -79,7 +113,7 @@ You can:
 
 **History** lists every generation in the current backend process. **Dashboard** shows how many Dockerfiles were generated this session and the latest activity. **Settings** lets you change the Ollama URL, default model, timeout, and max repair attempts.
 
-### 4. Stay inside a safe local boundary
+### 5. Stay inside a safe local boundary
 
 The builder treats uploaded projects as untrusted:
 
@@ -127,13 +161,14 @@ You choose a project or ZIP
             ▼
    Local Ollama model
    JSON: Dockerfile + explanation + decisions
+   (or optimized rewrite + suggestions)
             │
             ▼
    .dockerignore from language templates
             │
             ▼
    Workspace editor
-   review, edit, copy, download, regenerate
+   review, edit, copy, download, regenerate, optimize
 ```
 
 Ollama is behind an LLM **provider interface**. Application code does not call Ollama types directly, so a later Bedrock or OpenAI-compatible provider can replace it without changing analyzers or the UI.
@@ -192,10 +227,10 @@ The Vite dev server proxies `/api` to the backend, so you do not need to hardcod
 
 1. Confirm the sidebar shows **Backend** connected. **Ollama** should be green if `ollama serve` is running.
 2. Go to **New Dockerfile**.
-3. Choose `python-fastapi` (or upload a ZIP of your app).
-4. Click **Analyze project** and check language, framework, entry point, and ports.
-5. Pick a model and click **Generate Dockerfile**.
-6. When the job finishes, the Workspace opens with the Dockerfile, ignore file, and explanation.
+3. To generate from source: choose `python-fastapi` → **Analyze project** → **Generate from source**.
+4. To review an existing file: choose `python-unoptimized` → **Analyze project**. Issues appear immediately. Then click **Review and optimize existing**.
+5. You can also paste a Dockerfile into **Existing Dockerfile** and click **Find issues**.
+6. When the job finishes, the Workspace opens with the file, suggestions, and (for optimize) the original next to the rewrite.
 
 By default `WORKSPACE_ROOT` is this repo’s `sample-projects/` directory.
 
