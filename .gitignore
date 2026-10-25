@@ -58,3 +58,4 @@ lcov.info
 *.log
 tmp/
 temp/
+.uploads/

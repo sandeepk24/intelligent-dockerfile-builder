@@ -13,20 +13,20 @@
 - [x] Loading, error, and Ollama-disconnected states
 - [x] Lint, type-check, and test verification
 
-## Milestone 2 — Project Analysis and Dockerfile Generation
+## Milestone 2 — Project Analysis and Dockerfile Generation ✅
 
-- [ ] Python project analyzer (FastAPI, Flask, Django)
-- [ ] Node.js project analyzer (Express)
-- [ ] Go project analyzer
-- [ ] Secure file tree scanning with exclusions
-- [ ] ZIP upload with security validation
-- [ ] Ollama prompt engineering for Dockerfile generation
-- [ ] `.dockerignore` generation
-- [ ] Monaco Editor workspace page
-- [ ] Copy, download, edit, regenerate actions
-- [ ] AI explanation display
-- [ ] Sample Python FastAPI project for testing
-- [ ] Integration tests
+- [x] Python project analyzer (FastAPI, Flask, Django)
+- [x] Node.js project analyzer (Express)
+- [x] Go project analyzer
+- [x] Secure file tree scanning with exclusions
+- [x] ZIP upload with security validation
+- [x] Ollama prompt engineering for Dockerfile generation
+- [x] `.dockerignore` generation
+- [x] Monaco Editor workspace page
+- [x] Copy, download, edit, regenerate actions
+- [x] AI explanation display
+- [x] Sample Python FastAPI project for testing
+- [x] Integration tests
 
 ## Milestone 3 — Validation and AI Repair
 

@@ -79,7 +79,11 @@ User Action → React UI → API Client → FastAPI Endpoint
                               API Response → React UI
 ```
 
-## Database Schema (SQLite)
+## Persistence
+
+Milestone 2 stores projects, Dockerfiles, and jobs in process memory (`app/db/memory_store.py`). Restarting the backend clears history. SQLite + Alembic land in Milestone 4.
+
+Planned SQLite schema:
 
 - **projects**: Analyzed project metadata
 - **dockerfiles**: Generated Dockerfile content and metadata

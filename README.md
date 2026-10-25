@@ -74,6 +74,10 @@ npm run dev
 
 Open **http://localhost:5173** in your browser.
 
+The backend defaults `WORKSPACE_ROOT` to `sample-projects/` in this repository, so the New Dockerfile page can analyze the FastAPI, Express, and Go samples without extra setup.
+
+Generation requires a running Ollama server. Project analysis, ZIP upload, and history work without it. History is in-memory until Milestone 4.
+
 ## API Documentation
 
 Once the backend is running, visit **http://localhost:8000/docs** for the interactive OpenAPI documentation.
