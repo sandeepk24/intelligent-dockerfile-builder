@@ -21,7 +21,7 @@ export function Dashboard() {
     <div>
       <Header
         title="Dashboard"
-        description="AI-powered Dockerfile generation overview"
+        description="Intelligent Dockerfile generation overview"
       >
         <Link to="/new">
           <Button>

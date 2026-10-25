@@ -1,6 +1,6 @@
-# AI Dockerfile Builder
+# Intelligent Dockerfile Builder
 
-An AI-powered Dockerfile builder that analyzes application source code, generates optimized Dockerfiles using a locally hosted LLM (Ollama), validates Docker builds, and intelligently repairs build failures.
+An intelligent Dockerfile builder that analyzes application source code, generates optimized Dockerfiles using a locally hosted LLM (Ollama), validates Docker builds, and repairs build failures.
 
 ## Architecture
 
@@ -81,7 +81,7 @@ Once the backend is running, visit **http://localhost:8000/docs** for the intera
 ## Project Structure
 
 ```
-ai-dockerfile-builder/
+intelligent-dockerfile-builder/
 ├── frontend/          # React + Vite SPA
 ├── backend/           # FastAPI backend
 ├── prompts/           # LLM prompt templates

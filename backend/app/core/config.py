@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = "AI Dockerfile Builder"
+    app_name: str = "Intelligent Dockerfile Builder"
     app_version: str = "0.1.0"
     backend_host: str = "0.0.0.0"
     backend_port: int = 8000
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     docker_build_memory_limit: str = "2g"
 
     # Workspace
-    workspace_root: str = "/tmp/ai-dockerfile-workspace"
+    workspace_root: str = "/tmp/intelligent-dockerfile-workspace"
 
     # Upload
     max_upload_size_mb: int = 50
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     max_repair_attempts: int = 3
 
     # Database
-    database_url: str = "sqlite+aiosqlite:///./ai_dockerfile_builder.db"
+    database_url: str = "sqlite+aiosqlite:///./intelligent_dockerfile_builder.db"
 
 
 settings = Settings()

@@ -35,9 +35,9 @@ export function Sidebar() {
         </div>
         <div>
           <h1 className="text-sm font-semibold text-foreground">
-            AI Dockerfile
+            Intelligent
           </h1>
-          <p className="text-xs text-muted-foreground">Builder</p>
+          <p className="text-xs text-muted-foreground">Dockerfile Builder</p>
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AI Dockerfile Builder follows a clean layered architecture with strict separation between presentation, business logic, LLM integration, and infrastructure concerns.
+The Intelligent Dockerfile Builder follows a clean layered architecture with strict separation between presentation, business logic, LLM integration, and infrastructure concerns.
 
 ## System Components
 
