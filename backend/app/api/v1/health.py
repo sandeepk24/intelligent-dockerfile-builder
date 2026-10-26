@@ -6,7 +6,14 @@ from fastapi import APIRouter
 
 from app.core.config import settings
 from app.llm.ollama_client import ollama_client
-from app.schemas.health import HealthResponse, ModelsResponse, OllamaModel
+from app.schemas.health import (
+    HealthResponse,
+    ModelsResponse,
+    OllamaModel,
+    SessionStatsResponse,
+)
+from app.services.stats import session_stats
+from app.services.validation import toolchain_status
 
 router = APIRouter()
 
@@ -15,12 +22,22 @@ router = APIRouter()
 async def health_check() -> HealthResponse:
     """Check backend health and Ollama connectivity."""
     connected = await ollama_client.is_connected()
+    tools = toolchain_status()
     return HealthResponse(
         status="healthy",
         version=settings.app_version,
         ollama_connected=connected,
         ollama_url=settings.ollama_base_url,
+        docker_available=tools["docker"],
+        hadolint_available=tools["hadolint"],
+        trivy_available=tools["trivy"],
     )
+
+
+@router.get("/stats", response_model=SessionStatsResponse)
+async def get_session_stats() -> SessionStatsResponse:
+    """Return in-memory dashboard metrics for this process."""
+    return session_stats()
 
 
 @router.get("/models", response_model=ModelsResponse)

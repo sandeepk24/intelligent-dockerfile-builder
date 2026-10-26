@@ -12,6 +12,9 @@ class HealthResponse(BaseModel):
     version: str
     ollama_connected: bool
     ollama_url: str
+    docker_available: bool = False
+    hadolint_available: bool = False
+    trivy_available: bool = False
 
 
 class OllamaModel(BaseModel):
@@ -27,3 +30,14 @@ class ModelsResponse(BaseModel):
 
     models: list[OllamaModel]
     default_model: str
+
+
+class SessionStatsResponse(BaseModel):
+    """In-memory session metrics until SQLite lands in Milestone 4."""
+
+    dockerfiles_generated: int
+    validations_run: int
+    successful_builds: int
+    failed_validations: int
+    repairs_applied: int
+    avg_build_time_ms: int | None = None

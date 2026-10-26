@@ -37,6 +37,7 @@ class JobResponse(BaseModel):
     status: str
     job_type: str | None = None
     dockerfile_id: str | None = None
+    validation_id: str | None = None
     error: str | None = None
 
 
@@ -55,6 +56,8 @@ class DockerfileResponse(BaseModel):
     status: str
     original_dockerfile: str | None = None
     issues: list[DockerfileIssueResponse] = Field(default_factory=list)
+    parent_id: str | None = None
+    repair_attempt: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -67,6 +70,8 @@ class DockerfileSummary(BaseModel):
     framework: str | None = None
     model: str
     status: str
+    parent_id: str | None = None
+    repair_attempt: int = 0
     created_at: datetime
 
 

@@ -10,8 +10,10 @@ from app.analyzers.base import Analysis
 from app.analyzers.dockerfile_review import DockerfileIssue
 from app.generators.prompts import (
     OPTIMIZE_SYSTEM_PROMPT,
+    REPAIR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     build_optimize_prompt,
+    build_repair_prompt,
     build_user_prompt,
 )
 from app.llm.provider import LLMProvider
@@ -32,6 +34,7 @@ class LLMDockerfile(BaseModel):
     explanation: str = ""
     decisions: list[str] = Field(default_factory=list)
     issues: list[LLMIssue] = Field(default_factory=list)
+    root_cause: str = ""
 
     @field_validator("dockerfile")
     @classmethod
@@ -111,4 +114,28 @@ async def optimize_from_project(
         instructions=instructions,
     )
     raw = await provider.generate_json(model=model, prompt=prompt, system=OPTIMIZE_SYSTEM_PROMPT)
+    return LLMDockerfile.model_validate(raw)
+
+
+async def repair_from_failure(
+    project: ProjectRecord,
+    provider: LLMProvider,
+    *,
+    model: str,
+    dockerfile: str,
+    error_log: str,
+    lint_findings: list[dict],
+    instructions: str | None = None,
+) -> LLMDockerfile:
+    prompt = build_repair_prompt(
+        language=project.language,
+        framework=project.framework,
+        entry_point=project.entry_point,
+        start_command=project.start_command,
+        dockerfile=dockerfile,
+        error_log=error_log,
+        lint_findings=lint_findings,
+        instructions=instructions,
+    )
+    raw = await provider.generate_json(model=model, prompt=prompt, system=REPAIR_SYSTEM_PROMPT)
     return LLMDockerfile.model_validate(raw)

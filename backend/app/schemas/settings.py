@@ -14,6 +14,9 @@ class SettingsResponse(BaseModel):
     max_repair_attempts: int
     max_upload_size_mb: int
     max_file_count: int
+    docker_allow_builds: bool
+    startup_check_seconds: int
+    trivy_enabled: bool
 
 
 class SettingsUpdateRequest(BaseModel):

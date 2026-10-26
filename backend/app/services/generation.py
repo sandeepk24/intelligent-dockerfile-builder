@@ -180,6 +180,7 @@ def to_job_response(job: JobRecord) -> JobResponse:
         status=job.status,
         job_type=job.job_type,
         dockerfile_id=job.dockerfile_id,
+        validation_id=job.validation_id,
         error=job.error,
     )
 
@@ -201,6 +202,8 @@ def to_dockerfile_response(record: DockerfileRecord) -> DockerfileResponse:
         status=record.status,
         original_dockerfile=record.original_dockerfile,
         issues=[DockerfileIssueResponse.model_validate(item) for item in record.issues],
+        parent_id=record.parent_id,
+        repair_attempt=record.repair_attempt,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -216,5 +219,7 @@ def to_summary(record: DockerfileRecord) -> DockerfileSummary:
         framework=project.framework if project else None,
         model=record.model,
         status=record.status,
+        parent_id=record.parent_id,
+        repair_attempt=record.repair_attempt,
         created_at=record.created_at,
     )

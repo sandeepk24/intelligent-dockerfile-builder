@@ -22,6 +22,9 @@ async def get_settings() -> SettingsResponse:
         max_repair_attempts=settings.max_repair_attempts,
         max_upload_size_mb=settings.max_upload_size_mb,
         max_file_count=settings.max_file_count,
+        docker_allow_builds=settings.docker_allow_builds,
+        startup_check_seconds=settings.startup_check_seconds,
+        trivy_enabled=settings.trivy_enabled,
     )
 
 

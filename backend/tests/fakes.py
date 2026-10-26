@@ -39,6 +39,12 @@ class FakeLLMProvider:
             "decisions": ["Use python:3.12-slim", "Install deps before copying source"],
             "issues": [],
         }
+        if "<build_log>" in prompt:
+            payload["root_cause"] = (
+                "Base image tag could not be pulled or a RUN instruction failed."
+            )
+            payload["explanation"] = "Corrected the failing RUN layer and kept a non-root user."
+            payload["decisions"] = ["Fix the failing build instruction", "Keep USER appuser"]
         if "Known issues from static review" in prompt:
             payload["explanation"] = (
                 "Replaced python:latest, dropped root, stopped copying .env, and pinned a slim base image."
