@@ -6,7 +6,7 @@ You point it at a project. It inspects the source, detects the language and how 
 
 No paid LLM APIs. Nothing leaves your machine except the local Ollama call.
 
-**Status:** Milestones 1 and 2 are working (analyze, generate, and review/optimize). Docker build validation, Hadolint, Trivy, and AI repair of failed builds are next.
+**Status:** Milestones 1–3 are working (analyze, generate, review/optimize, Hadolint, isolated Docker builds, optional Trivy, and AI repair). SQLite persistence is next.
 
 ---
 
@@ -111,9 +111,20 @@ You can:
 - download both `Dockerfile` and `.dockerignore`
 - regenerate with extra instructions (keeps the same analyzed project)
 
-**History** lists every generation in the current backend process. **Dashboard** shows how many Dockerfiles were generated this session and the latest activity. **Settings** lets you change the Ollama URL, default model, timeout, and max repair attempts.
+**History** lists every generation in the current backend process, including repaired files. **Dashboard** shows session counts for generations, successful builds, average build time, and repairs. **Settings** lets you change the Ollama URL, default model, timeout, and max repair attempts.
 
-### 5. Stay inside a safe local boundary
+### 5. Validate a Dockerfile and repair failures
+
+From the **Workspace**, run validation without leaving the editor.
+
+1. **Lint only** — Hadolint JSON findings plus the same static review used for optimize. No Docker daemon required.
+2. **Isolated build** — only after you check both **Approve isolated Docker build** and **I understand this runs untrusted project code**. The backend copies scanned project files into a throwaway sandbox, builds with resource labels (no `--privileged`), records image size and duration, then deletes the image.
+3. **Startup check** (optional) — `docker run` with `--network=none`, dropped capabilities, a PID limit, and no published ports. It only checks that a process stays up for a few seconds.
+4. **Trivy** (optional) — HIGH/CRITICAL findings when the binary is installed.
+
+If the approved build or startup check fails, **Repair with AI** sends the sanitized log (secrets and local paths redacted, truncated) to Ollama and proposes a new Dockerfile. Repair never auto-rebuilds and never runs model-generated host commands. The lineage is capped at three attempts.
+
+### 6. Stay inside a safe local boundary
 
 The builder treats uploaded projects as untrusted:
 
@@ -122,6 +133,8 @@ The builder treats uploaded projects as untrusted:
 - ZIP uploads are checked for path traversal, symlinks, file-count limits, upload size, and zip bombs
 - CORS is limited to the configured frontend origin
 - there is no endpoint that runs arbitrary host commands from model output
+- Docker builds require both `approve_build` and `confirm_untrusted_execution`
+- repair prompts wrap build logs as data; the model cannot request host commands
 
 ---
 
@@ -131,11 +144,6 @@ These are planned, not implemented:
 
 | Feature | When |
 |---------|------|
-| Hadolint syntax/lint checks | Milestone 3 |
-| Isolated Docker **build** validation with explicit approval | Milestone 3 |
-| Image size inspection | Milestone 3 |
-| Optional Trivy vulnerability scan | Milestone 3 |
-| AI repair loop (max 3 attempts) when a build fails | Milestone 3 |
 | SQLite history that survives a restart | Milestone 4 |
 | Persistent evaluation metrics (build time, size, lint findings) | Milestone 4 |
 
@@ -169,6 +177,13 @@ You choose a project or ZIP
             ▼
    Workspace editor
    review, edit, copy, download, regenerate, optimize
+            │
+            ▼
+   Validation (opt-in)
+   Hadolint → approved sandbox build → size / startup / Trivy
+            │
+            ▼
+   AI repair (max 3, no auto-rebuild)
 ```
 
 Ollama is behind an LLM **provider interface**. Application code does not call Ollama types directly, so a later Bedrock or OpenAI-compatible provider can replace it without changing analyzers or the UI.
@@ -182,8 +197,11 @@ Ollama is behind an LLM **provider interface**. Application code does not call O
 - Node.js 20+
 - Python 3.12+
 - [Ollama](https://ollama.ai/download) for generation (analysis works without it)
+- Docker CLI for isolated builds (optional)
+- [Hadolint](https://github.com/hadolint/hadolint) for Dockerfile lint (optional; skipped if missing)
+- [Trivy](https://github.com/aquasecurity/trivy) for HIGH/CRITICAL image scans (optional)
 
-Docker, Hadolint, and Trivy are not required until Milestone 3.
+Lint-only validation works without Docker. Approved builds and Trivy are skipped cleanly when those binaries are not installed.
 
 ### Start Ollama
 
@@ -231,6 +249,7 @@ The Vite dev server proxies `/api` to the backend, so you do not need to hardcod
 4. To review an existing file: choose `python-unoptimized` → **Analyze project**. Issues appear immediately. Then click **Review and optimize existing**.
 5. You can also paste a Dockerfile into **Existing Dockerfile** and click **Find issues**.
 6. When the job finishes, the Workspace opens with the file, suggestions, and (for optimize) the original next to the rewrite.
+7. In Workspace, click **Lint only** or approve an isolated Docker build. If the build fails, use **Repair with AI**.
 
 By default `WORKSPACE_ROOT` is this repo’s `sample-projects/` directory.
 
@@ -249,6 +268,10 @@ Copy `.env.example` to `.env` next to the backend. Important settings:
 | `MAX_FILE_COUNT` | Max files in a scanned project or ZIP |
 | `CORS_ORIGINS` | Allowed frontend origins |
 | `VITE_API_BASE_URL` | Frontend API base; leave empty in dev to use the Vite proxy |
+| `DOCKER_ALLOW_BUILDS` | Master switch for sandbox builds (default true; UI still requires approval) |
+| `DOCKER_SANDBOX_DIR` | Throwaway build-context directory |
+| `STARTUP_CHECK_SECONDS` | How long a process must stay up during the optional run check |
+| `MAX_REPAIR_ATTEMPTS` | Cap on AI repair attempts per Dockerfile lineage (default 3) |
 
 Ollama URL and default model can also be changed at runtime on the **Settings** page.
 

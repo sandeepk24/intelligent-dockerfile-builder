@@ -7,10 +7,13 @@ Interactive docs: `http://localhost:8000/docs`
 ## Health & Discovery
 
 ### GET /health
-Check backend and Ollama connectivity.
+Check backend, Ollama, Docker, Hadolint, and Trivy availability.
 
 ### GET /models
 List available Ollama models.
+
+### GET /stats
+In-memory session metrics: generated Dockerfiles, validation counts, successful builds, average build time, and repairs.
 
 ## Workspace
 
@@ -111,7 +114,7 @@ Review an existing Dockerfile and generate an optimized rewrite. Uses the projec
 **Response 202:** job ID with `job_type: "optimize"`.
 
 ### GET /jobs/{job_id}
-Poll generation or optimize status (`pending`, `running`, `completed`, `failed`).
+Poll generation, optimize, validation, or repair status (`pending`, `running`, `completed`, `failed`). Completed validation jobs include `validation_id`.
 
 ### GET /dockerfiles/{id}
 Retrieve a generated or optimized Dockerfile, original file (if any), issues, `.dockerignore`, explanation, and decisions.
@@ -123,10 +126,42 @@ Save user edits to Dockerfile and/or `.dockerignore`.
 List previously generated Dockerfiles for this process. Persistence is in-memory until Milestone 4.
 
 ### POST /dockerfiles/{id}/validate
-Not implemented until Milestone 3.
+Start a background validation job. Lint (Hadolint + static review) always runs. A Docker build runs only when both flags are true.
+
+**Request:**
+```json
+{
+  "approve_build": true,
+  "confirm_untrusted_execution": true,
+  "run_trivy": false,
+  "run_startup_check": true
+}
+```
+
+**Response 202:** job ID with `job_type: "validate"`. `approve_build` without `confirm_untrusted_execution` returns 400.
+
+### GET /dockerfiles/{id}/validations
+List validation runs for a Dockerfile, newest first.
+
+### GET /validations/{id}
+Fetch one validation: lint, build, image size, duration, optional Trivy and startup results, and a sanitized error log.
 
 ### POST /dockerfiles/{id}/repair
-Not implemented until Milestone 3.
+Propose a repaired Dockerfile from a **failed** validation. Does not auto-rebuild. Lineage is capped at `MAX_REPAIR_ATTEMPTS` (default 3).
+
+**Request:**
+```json
+{
+  "validation_id": "uuid",
+  "model": "codellama:7b",
+  "instructions": "Keep python:3.12-slim"
+}
+```
+
+**Response 202:** job ID with `job_type: "repair"`. On completion, `dockerfile_id` points at the new repaired file.
+
+### GET /dockerfiles/{id}/repairs
+Repair history for this Dockerfile, including `attempts_used` and `max_attempts`.
 
 ## Settings
 

@@ -57,8 +57,10 @@ backend/app/
 4. **Security Boundaries**:
    - Workspace root is explicitly configured — no arbitrary filesystem access
    - ZIP uploads validated against traversal, symlinks, bombs
-   - Docker builds require explicit approval and run with resource limits
-   - LLM prompts treat uploaded code as data, never as instructions
+   - Docker builds require `approve_build` **and** `confirm_untrusted_execution`
+   - Build context is a copy of scanned files only; the container is never privileged
+   - Startup checks use `--network=none` and do not publish ports
+   - LLM prompts treat uploaded code and sanitized build logs as data, never as instructions
    - CORS restricted to configured origins
 
 ## Data Flow
@@ -81,7 +83,7 @@ User Action → React UI → API Client → FastAPI Endpoint
 
 ## Persistence
 
-Milestone 2 stores projects, Dockerfiles, and jobs in process memory (`app/db/memory_store.py`). Restarting the backend clears history. SQLite + Alembic land in Milestone 4.
+Milestones 2–3 store projects, Dockerfiles, jobs, validations, and repairs in process memory (`app/db/memory_store.py`). Restarting the backend clears history. SQLite + Alembic land in Milestone 4.
 
 Planned SQLite schema:
 

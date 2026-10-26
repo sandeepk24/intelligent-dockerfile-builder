@@ -29,17 +29,17 @@
 - [x] Integration tests
 - [x] Review existing Dockerfiles, surface issues, and propose optimizations
 
-## Milestone 3 — Validation and AI Repair
+## Milestone 3 — Validation and AI Repair ✅
 
-- [ ] Hadolint integration
-- [ ] Docker build validation with isolation
-- [ ] Build approval workflow
-- [ ] Image size inspection
-- [ ] Optional Trivy scanning
-- [ ] AI error analysis via Ollama
-- [ ] Corrected Dockerfile generation
-- [ ] Repair attempt tracking (max 3)
-- [ ] Validation and repair history UI
+- [x] Hadolint integration
+- [x] Docker build validation with isolation
+- [x] Build approval workflow
+- [x] Image size inspection
+- [x] Optional Trivy scanning
+- [x] AI error analysis via Ollama
+- [x] Corrected Dockerfile generation
+- [x] Repair attempt tracking (max 3)
+- [x] Validation and repair history UI
 
 ## Milestone 4 — Dashboard and Evaluation
 
