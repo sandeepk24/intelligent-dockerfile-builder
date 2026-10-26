@@ -1,3 +1,15 @@
-from app.models.records import DockerfileRecord, JobRecord, ProjectRecord
+from app.models.records import (
+    DockerfileRecord,
+    JobRecord,
+    ProjectRecord,
+    RepairRecord,
+    ValidationRecord,
+)
 
-__all__ = ["DockerfileRecord", "JobRecord", "ProjectRecord"]
+__all__ = [
+    "DockerfileRecord",
+    "JobRecord",
+    "ProjectRecord",
+    "RepairRecord",
+    "ValidationRecord",
+]

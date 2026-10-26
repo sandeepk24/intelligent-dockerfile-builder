@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     docker_build_timeout: int = 300
     docker_build_cpu_limit: int = 2
     docker_build_memory_limit: str = "2g"
+    docker_sandbox_dir: str = "/tmp/intelligent-dockerfile-sandbox"
+    docker_allow_builds: bool = True
+    startup_check_seconds: int = 8
+
+    # External tools
+    hadolint_bin: str = "hadolint"
+    trivy_bin: str = "trivy"
+    trivy_enabled: bool = False
 
     # Workspace
     workspace_root: str = _DEFAULT_WORKSPACE

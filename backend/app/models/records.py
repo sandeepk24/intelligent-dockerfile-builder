@@ -46,6 +46,8 @@ class DockerfileRecord:
     status: str = "generated"
     original_dockerfile: str | None = None
     issues: list[dict] = field(default_factory=list)
+    parent_id: str | None = None
+    repair_attempt: int = 0
     created_at: datetime = field(default_factory=utcnow)
     updated_at: datetime = field(default_factory=utcnow)
 
@@ -58,6 +60,41 @@ class JobRecord:
     job_type: str
     status: str = "pending"
     dockerfile_id: str | None = None
+    validation_id: str | None = None
     error: str | None = None
     created_at: datetime = field(default_factory=utcnow)
     updated_at: datetime = field(default_factory=utcnow)
+
+
+@dataclass
+class ValidationRecord:
+    """One validation run: lint, optional build, scan, and startup check."""
+
+    id: str
+    dockerfile_id: str
+    status: str
+    lint: dict = field(default_factory=dict)
+    build: dict = field(default_factory=dict)
+    image_size_bytes: int | None = None
+    build_duration_ms: int | None = None
+    trivy: dict | None = None
+    startup: dict | None = None
+    error_log: str | None = None
+    approved_build: bool = False
+    created_at: datetime = field(default_factory=utcnow)
+
+
+@dataclass
+class RepairRecord:
+    """One AI repair attempt against a failed validation."""
+
+    id: str
+    validation_id: str
+    source_dockerfile_id: str
+    result_dockerfile_id: str | None = None
+    attempt: int = 1
+    root_cause: str = ""
+    explanation: str = ""
+    decisions: list[str] = field(default_factory=list)
+    status: str = "proposed"
+    created_at: datetime = field(default_factory=utcnow)
