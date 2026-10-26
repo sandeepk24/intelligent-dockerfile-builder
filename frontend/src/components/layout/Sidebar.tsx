@@ -83,6 +83,17 @@ export function Sidebar() {
           label="Backend"
           detail={health?.version}
         />
+        <StatusIndicator
+          status={
+            isLoading
+              ? "loading"
+              : health?.docker_available
+                ? "connected"
+                : "disconnected"
+          }
+          label="Docker"
+          detail={health?.docker_available ? "ready" : "offline"}
+        />
       </div>
     </aside>
   );

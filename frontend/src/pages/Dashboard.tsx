@@ -11,13 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/Ca
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Spinner } from "@/components/common/Spinner";
-import { useDockerfileHistory, useHealth, useModels } from "@/api/queries";
+import { formatDuration } from "@/lib/utils";
+import { useDockerfileHistory, useHealth, useModels, useSessionStats } from "@/api/queries";
 
 export function Dashboard() {
   const { data: health, isLoading: healthLoading } = useHealth();
   const { data: modelsData, isLoading: modelsLoading } = useModels();
   const { data: history } = useDockerfileHistory();
-  const generatedCount = history?.items.length ?? 0;
+  const { data: stats } = useSessionStats();
+  const generatedCount = stats?.dockerfiles_generated ?? history?.items.length ?? 0;
   const recent = history?.items.slice(0, 5) ?? [];
 
   return (
@@ -46,20 +48,20 @@ export function Dashboard() {
           <StatsCard
             icon={CheckCircle2}
             title="Successful Builds"
-            value="—"
-            description="Validation arrives in Milestone 3"
+            value={String(stats?.successful_builds ?? 0)}
+            description={`${stats?.validations_run ?? 0} validation runs`}
           />
           <StatsCard
             icon={Clock}
             title="Avg Build Time"
-            value="—"
-            description="Across all builds"
+            value={formatDuration(stats?.avg_build_time_ms)}
+            description="Approved Docker builds"
           />
           <StatsCard
             icon={AlertTriangle}
             title="Repairs Applied"
-            value="0"
-            description="AI-assisted fixes"
+            value={String(stats?.repairs_applied ?? 0)}
+            description={`${stats?.failed_validations ?? 0} failed validations`}
           />
         </div>
 
@@ -90,6 +92,21 @@ export function Dashboard() {
                       health.ollama_connected ? "connected" : "disconnected"
                     }
                     detail={health.ollama_url}
+                  />
+                  <StatusRow
+                    label="Docker"
+                    status={health.docker_available ? "connected" : "disconnected"}
+                    detail={health.docker_available ? "CLI found" : "not installed"}
+                  />
+                  <StatusRow
+                    label="Hadolint"
+                    status={health.hadolint_available ? "connected" : "disconnected"}
+                    detail={health.hadolint_available ? "ready" : "lint skipped"}
+                  />
+                  <StatusRow
+                    label="Trivy"
+                    status={health.trivy_available ? "connected" : "disconnected"}
+                    detail={health.trivy_available ? "optional scan" : "not installed"}
                   />
                   {!health.ollama_connected && (
                     <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 p-3">

@@ -123,7 +123,8 @@ export function Settings() {
           <CardHeader>
             <CardTitle>Docker Validation</CardTitle>
             <CardDescription>
-              Build environment and resource limits used in Milestone 3
+              Isolated builds copy scanned files into a sandbox. Builds stay off
+              until you approve them in the workspace.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -131,6 +132,11 @@ export function Settings() {
               <code className="rounded bg-muted px-2 py-1 text-xs">
                 {settings?.workspace_root}
               </code>
+            </Field>
+            <Field label="Docker builds allowed">
+              <Badge variant={settings?.docker_allow_builds ? "success" : "destructive"}>
+                {settings?.docker_allow_builds ? "enabled" : "disabled"}
+              </Badge>
             </Field>
             <Field label="Build timeout">
               <span className="text-sm">{settings?.docker_build_timeout} seconds</span>
@@ -141,6 +147,14 @@ export function Settings() {
             <Field label="Memory limit">
               <span className="text-sm">{settings?.docker_build_memory_limit}</span>
             </Field>
+            <Field label="Startup check window">
+              <span className="text-sm">{settings?.startup_check_seconds} seconds</span>
+            </Field>
+            <Field label="Trivy default">
+              <Badge variant={settings?.trivy_enabled ? "success" : "outline"}>
+                {settings?.trivy_enabled ? "on" : "opt-in per run"}
+              </Badge>
+            </Field>
             <Field label="Max repair attempts">
               <input
                 type="number"
@@ -150,6 +164,21 @@ export function Settings() {
                 value={repairs}
                 onChange={(event) => setRepairs(event.target.value)}
               />
+            </Field>
+            <Field label="Docker CLI">
+              <Badge variant={health?.docker_available ? "success" : "destructive"}>
+                {health?.docker_available ? "available" : "missing"}
+              </Badge>
+            </Field>
+            <Field label="Hadolint">
+              <Badge variant={health?.hadolint_available ? "success" : "outline"}>
+                {health?.hadolint_available ? "available" : "missing"}
+              </Badge>
+            </Field>
+            <Field label="Trivy">
+              <Badge variant={health?.trivy_available ? "success" : "outline"}>
+                {health?.trivy_available ? "available" : "missing"}
+              </Badge>
             </Field>
           </CardContent>
         </Card>

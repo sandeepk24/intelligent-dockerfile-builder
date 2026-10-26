@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Copy, Download, RefreshCw, Save, ScanSearch } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/Card";
@@ -7,6 +8,7 @@ import { Button } from "@/components/common/Button";
 import { Badge } from "@/components/common/Badge";
 import { Spinner } from "@/components/common/Spinner";
 import { DockerfileEditor } from "@/components/dockerfile/DockerfileEditor";
+import { ValidationPanel } from "@/components/dockerfile/ValidationPanel";
 import { copyText, downloadText } from "@/lib/download";
 import { useToast } from "@/hooks/useToast";
 import {
@@ -14,7 +16,11 @@ import {
   useGenerateDockerfile,
   useJob,
   useOptimizeDockerfile,
+  useRepairDockerfile,
+  useRepairs,
   useSaveDockerfile,
+  useValidateDockerfile,
+  useValidations,
 } from "@/api/queries";
 import { IssueList } from "@/components/dockerfile/IssueList";
 
@@ -24,16 +30,25 @@ export function Workspace() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { push } = useToast();
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useDockerfile(id);
   const save = useSaveDockerfile();
   const generate = useGenerateDockerfile();
   const optimize = useOptimizeDockerfile();
+  const validate = useValidateDockerfile();
+  const repair = useRepairDockerfile();
+  const validations = useValidations(id);
+  const repairs = useRepairs(id);
 
   const [tab, setTab] = useState<Tab>("dockerfile");
   const [dockerfile, setDockerfile] = useState("");
   const [dockerignore, setDockerignore] = useState("");
   const [instructions, setInstructions] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
+  const [approveBuild, setApproveBuild] = useState(false);
+  const [confirmUntrusted, setConfirmUntrusted] = useState(false);
+  const [runTrivy, setRunTrivy] = useState(false);
+  const [runStartup, setRunStartup] = useState(false);
   const job = useJob(jobId);
 
   useEffect(() => {
@@ -45,22 +60,36 @@ export function Workspace() {
   }, [data]);
 
   useEffect(() => {
-    if (job.data?.status === "completed" && job.data.dockerfile_id) {
-      const nextId = job.data.dockerfile_id;
+    if (job.data?.status === "completed") {
+      const type = job.data.job_type;
       setJobId(null);
-      push(
-        job.data.job_type === "optimize"
-          ? "Dockerfile optimized"
-          : "Regenerated Dockerfile",
-        "success"
-      );
-      navigate(`/workspace/${nextId}`);
+      queryClient.invalidateQueries({ queryKey: ["validations", id] });
+      queryClient.invalidateQueries({ queryKey: ["repairs", id] });
+      queryClient.invalidateQueries({ queryKey: ["session-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dockerfile-history"] });
+      if (type === "validate") {
+        push("Validation finished", "success");
+        return;
+      }
+      if (job.data.dockerfile_id) {
+        push(
+          type === "optimize"
+            ? "Dockerfile optimized"
+            : type === "repair"
+              ? "Repair proposed"
+              : "Regenerated Dockerfile",
+          "success"
+        );
+        if (job.data.dockerfile_id !== id) {
+          navigate(`/workspace/${job.data.dockerfile_id}`);
+        }
+      }
     }
     if (job.data?.status === "failed") {
-      push(job.data.error || "Regeneration failed", "error");
+      push(job.data.error || "Job failed", "error");
       setJobId(null);
     }
-  }, [job.data, navigate, push]);
+  }, [id, job.data, navigate, push, queryClient]);
 
   async function handleCopy() {
     await copyText(tab === "dockerignore" ? dockerignore : dockerfile);
@@ -121,9 +150,50 @@ export function Workspace() {
     }
   }
 
+  async function handleValidate() {
+    if (!id) {
+      return;
+    }
+    if (approveBuild && !confirmUntrusted) {
+      push("Confirm that this build runs untrusted project code", "error");
+      return;
+    }
+    try {
+      const jobResponse = await validate.mutateAsync({
+        id,
+        approve_build: approveBuild,
+        confirm_untrusted_execution: confirmUntrusted,
+        run_trivy: runTrivy,
+        run_startup_check: runStartup,
+      });
+      setJobId(jobResponse.job_id);
+    } catch (err) {
+      push(err instanceof Error ? err.message : "Validation failed", "error");
+    }
+  }
+
+  async function handleRepair() {
+    if (!id || !validations.data?.items[0]) {
+      return;
+    }
+    try {
+      const jobResponse = await repair.mutateAsync({
+        id,
+        validation_id: validations.data.items[0].id,
+        model: data?.model,
+        instructions: instructions.trim() || undefined,
+      });
+      setJobId(jobResponse.job_id);
+    } catch (err) {
+      push(err instanceof Error ? err.message : "Repair failed", "error");
+    }
+  }
+
   const generating =
     generate.isPending ||
     optimize.isPending ||
+    validate.isPending ||
+    repair.isPending ||
     job.data?.status === "pending" ||
     job.data?.status === "running";
 
@@ -253,8 +323,36 @@ export function Workspace() {
               <Row label="Framework" value={data.framework} />
               <Row label="Model" value={data.model} />
               <Row label="Status" value={data.status} />
+              {data.parent_id && (
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">Repaired from</span>
+                  <Link
+                    to={`/workspace/${data.parent_id}`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    previous file
+                  </Link>
+                </div>
+              )}
             </CardContent>
           </Card>
+
+          <ValidationPanel
+            latest={validations.data?.items[0]}
+            history={validations.data?.items ?? []}
+            repairs={repairs.data}
+            approveBuild={approveBuild}
+            confirmUntrusted={confirmUntrusted}
+            runTrivy={runTrivy}
+            runStartup={runStartup}
+            busy={generating}
+            onApproveBuild={setApproveBuild}
+            onConfirmUntrusted={setConfirmUntrusted}
+            onRunTrivy={setRunTrivy}
+            onRunStartup={setRunStartup}
+            onValidate={handleValidate}
+            onRepair={handleRepair}
+          />
 
           <Card>
             <CardHeader>

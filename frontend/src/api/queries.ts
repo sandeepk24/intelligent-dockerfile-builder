@@ -8,7 +8,10 @@ import type {
   JobResponse,
   ModelsResponse,
   ProjectAnalysis,
+  RepairListResponse,
+  SessionStats,
   SettingsUpdate,
+  ValidationListResponse,
   WorkspaceListResponse,
 } from "@/types/api";
 
@@ -124,6 +127,65 @@ export function useSaveDockerfile() {
       queryClient.setQueryData(["dockerfile", data.id], data);
       queryClient.invalidateQueries({ queryKey: ["dockerfile-history"] });
     },
+  });
+}
+
+export function useValidations(dockerfileId: string | undefined) {
+  return useQuery<ValidationListResponse>({
+    queryKey: ["validations", dockerfileId],
+    queryFn: () =>
+      api.get<ValidationListResponse>(`/dockerfiles/${dockerfileId}/validations`),
+    enabled: Boolean(dockerfileId),
+  });
+}
+
+export function useRepairs(dockerfileId: string | undefined) {
+  return useQuery<RepairListResponse>({
+    queryKey: ["repairs", dockerfileId],
+    queryFn: () =>
+      api.get<RepairListResponse>(`/dockerfiles/${dockerfileId}/repairs`),
+    enabled: Boolean(dockerfileId),
+  });
+}
+
+export function useValidateDockerfile() {
+  return useMutation({
+    mutationFn: (payload: {
+      id: string;
+      approve_build: boolean;
+      confirm_untrusted_execution: boolean;
+      run_trivy: boolean;
+      run_startup_check: boolean;
+    }) =>
+      api.post<JobResponse>(`/dockerfiles/${payload.id}/validate`, {
+        approve_build: payload.approve_build,
+        confirm_untrusted_execution: payload.confirm_untrusted_execution,
+        run_trivy: payload.run_trivy,
+        run_startup_check: payload.run_startup_check,
+      }),
+  });
+}
+
+export function useRepairDockerfile() {
+  return useMutation({
+    mutationFn: (payload: {
+      id: string;
+      validation_id: string;
+      model?: string;
+      instructions?: string;
+    }) =>
+      api.post<JobResponse>(`/dockerfiles/${payload.id}/repair`, {
+        validation_id: payload.validation_id,
+        model: payload.model,
+        instructions: payload.instructions,
+      }),
+  });
+}
+
+export function useSessionStats() {
+  return useQuery<SessionStats>({
+    queryKey: ["session-stats"],
+    queryFn: () => api.get<SessionStats>("/stats"),
   });
 }
 

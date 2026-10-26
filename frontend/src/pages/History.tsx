@@ -13,7 +13,7 @@ export function History() {
     <div>
       <Header
         title="History"
-        description="Previously generated Dockerfiles for this session"
+        description="Generated, optimized, and repaired Dockerfiles for this session"
       />
       <div className="p-8">
         {isLoading ? (
@@ -58,8 +58,9 @@ export function History() {
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{item.model}</td>
                     <td className="px-4 py-3">
-                      <Badge variant={item.status === "edited" ? "warning" : "success"}>
+                      <Badge variant={historyBadge(item.status)}>
                         {item.status}
+                        {item.repair_attempt ? ` #${item.repair_attempt}` : ""}
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
@@ -74,4 +75,17 @@ export function History() {
       </div>
     </div>
   );
+}
+
+function historyBadge(status: string): "success" | "warning" | "destructive" | "default" {
+  if (status === "failed") {
+    return "destructive";
+  }
+  if (status === "edited" || status === "repaired") {
+    return "warning";
+  }
+  if (status === "optimized") {
+    return "default";
+  }
+  return "success";
 }

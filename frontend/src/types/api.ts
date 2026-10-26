@@ -3,6 +3,18 @@ export interface HealthResponse {
   version: string;
   ollama_connected: boolean;
   ollama_url: string;
+  docker_available: boolean;
+  hadolint_available: boolean;
+  trivy_available: boolean;
+}
+
+export interface SessionStats {
+  dockerfiles_generated: number;
+  validations_run: number;
+  successful_builds: number;
+  failed_validations: number;
+  repairs_applied: number;
+  avg_build_time_ms: number | null;
 }
 
 export interface OllamaModel {
@@ -60,6 +72,7 @@ export interface JobResponse {
   status: "pending" | "running" | "completed" | "failed" | string;
   job_type: string | null;
   dockerfile_id: string | null;
+  validation_id: string | null;
   error: string | null;
 }
 
@@ -78,6 +91,8 @@ export interface DockerfileDetail {
   status: string;
   original_dockerfile: string | null;
   issues: DockerfileIssue[];
+  parent_id: string | null;
+  repair_attempt: number;
   created_at: string;
   updated_at: string;
 }
@@ -90,6 +105,8 @@ export interface DockerfileSummary {
   framework: string | null;
   model: string;
   status: string;
+  parent_id: string | null;
+  repair_attempt: number;
   created_at: string;
 }
 
@@ -108,6 +125,61 @@ export interface AppSettings {
   max_repair_attempts: number;
   max_upload_size_mb: number;
   max_file_count: number;
+  docker_allow_builds: boolean;
+  startup_check_seconds: number;
+  trivy_enabled: boolean;
+}
+
+export interface ToolStepResult {
+  status: string;
+  reason?: string | null;
+  findings?: Record<string, unknown>[];
+  static_findings?: Record<string, unknown>[];
+  log?: string | null;
+  image_tag?: string | null;
+  duration_ms?: number | null;
+  image_size_bytes?: number | null;
+  finding_count?: number | null;
+  returncode?: number | null;
+  stderr?: string | null;
+}
+
+export interface ValidationResult {
+  id: string;
+  dockerfile_id: string;
+  status: string;
+  approved_build: boolean;
+  lint: ToolStepResult;
+  build: ToolStepResult;
+  image_size_bytes: number | null;
+  build_duration_ms: number | null;
+  trivy: ToolStepResult | null;
+  startup: ToolStepResult | null;
+  error_log: string | null;
+  created_at: string;
+}
+
+export interface ValidationListResponse {
+  items: ValidationResult[];
+}
+
+export interface RepairResult {
+  id: string;
+  validation_id: string;
+  source_dockerfile_id: string;
+  result_dockerfile_id: string | null;
+  attempt: number;
+  root_cause: string;
+  explanation: string;
+  decisions: string[];
+  status: string;
+  created_at: string;
+}
+
+export interface RepairListResponse {
+  items: RepairResult[];
+  attempts_used: number;
+  max_attempts: number;
 }
 
 export interface SettingsUpdate {
