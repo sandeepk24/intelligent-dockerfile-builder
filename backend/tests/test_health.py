@@ -13,6 +13,9 @@ async def test_health_endpoint(client):
     assert "version" in data
     assert "ollama_connected" in data
     assert "ollama_url" in data
+    assert "docker_available" in data
+    assert "hadolint_available" in data
+    assert "trivy_available" in data
 
 
 @pytest.mark.asyncio

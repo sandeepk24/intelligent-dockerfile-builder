@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 
 from app.db.memory_store import MemoryStore
-from app.models.records import DockerfileRecord, JobRecord, ProjectRecord
+from app.models.records import DockerfileRecord, JobRecord, ProjectRecord, ValidationRecord
 
 
 def test_store_round_trip_and_history_order():
@@ -48,3 +48,27 @@ def test_store_project_and_job_updates():
     assert updated is not None
     assert updated.status == "completed"
     assert job.dockerfile_id == "df-1"
+
+
+def test_store_validations_are_listed_newest_first():
+    memory = MemoryStore()
+    memory.save_validation(
+        ValidationRecord(
+            id="v1",
+            dockerfile_id="df-1",
+            status="failed",
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+    )
+    memory.save_validation(
+        ValidationRecord(
+            id="v2",
+            dockerfile_id="df-1",
+            status="passed",
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+    )
+    items = memory.list_validations("df-1")
+    assert [item.id for item in items] == ["v2", "v1"]
+    updated = memory.update_job("missing", status="failed")
+    assert updated is None
