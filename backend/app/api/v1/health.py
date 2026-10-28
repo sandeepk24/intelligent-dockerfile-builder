@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter
 
 from app.core.config import settings
+from app.db.store import store
 from app.llm.ollama_client import ollama_client
 from app.schemas.health import (
     HealthResponse,
@@ -31,12 +32,13 @@ async def health_check() -> HealthResponse:
         docker_available=tools["docker"],
         hadolint_available=tools["hadolint"],
         trivy_available=tools["trivy"],
+        persistence=store.kind,
     )
 
 
 @router.get("/stats", response_model=SessionStatsResponse)
 async def get_session_stats() -> SessionStatsResponse:
-    """Return in-memory dashboard metrics for this process."""
+    """Return dashboard metrics from SQLite or the in-memory store."""
     return session_stats()
 
 

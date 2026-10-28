@@ -7,7 +7,8 @@ from uuid import uuid4
 from app.analyzers.dockerfile_review import issues_to_dicts, review_dockerfile
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.db.memory_store import store
+from app.db.store import store
+from app.evaluators.metrics import record_dockerfile_event
 from app.generators.dockerfile import (
     generate_from_project,
     optimize_from_project,
@@ -69,6 +70,7 @@ async def run_generation_job(
             status="generated",
         )
         store.save_dockerfile(record)
+        record_dockerfile_event(record)
         store.update_job(job_id, status="completed", dockerfile_id=record.id)
     except Exception as exc:
         logger.exception("Dockerfile generation job %s failed", job_id)
@@ -128,6 +130,7 @@ async def run_optimize_job(
             issues=merged_issues,
         )
         store.save_dockerfile(record)
+        record_dockerfile_event(record)
         store.update_job(job_id, status="completed", dockerfile_id=record.id)
     except Exception as exc:
         logger.exception("Dockerfile optimize job %s failed", job_id)
@@ -167,11 +170,19 @@ def update_dockerfile(
         record.dockerignore = dockerignore
     record.status = "edited"
     record.updated_at = utcnow()
-    return store.save_dockerfile(record)
+    saved = store.save_dockerfile(record)
+    record_dockerfile_event(saved)
+    return saved
 
 
-def list_history() -> list[DockerfileRecord]:
-    return store.list_dockerfiles()
+def list_history(
+    *,
+    status: str | None = None,
+    language: str | None = None,
+    model: str | None = None,
+    query: str | None = None,
+) -> list[DockerfileRecord]:
+    return store.list_dockerfiles(status=status, language=language, model=model, query=query)
 
 
 def to_job_response(job: JobRecord) -> JobResponse:
@@ -211,6 +222,8 @@ def to_dockerfile_response(record: DockerfileRecord) -> DockerfileResponse:
 
 def to_summary(record: DockerfileRecord) -> DockerfileSummary:
     project = store.get_project(record.project_id)
+    latest = store.list_validations(record.id)
+    last = latest[0] if latest else None
     return DockerfileSummary(
         id=record.id,
         project_id=record.project_id,
@@ -221,5 +234,7 @@ def to_summary(record: DockerfileRecord) -> DockerfileSummary:
         status=record.status,
         parent_id=record.parent_id,
         repair_attempt=record.repair_attempt,
+        last_validation_status=last.status if last else None,
+        image_size_bytes=last.image_size_bytes if last else None,
         created_at=record.created_at,
     )

@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.core.config import settings
+from app.db.store import persist_settings, store
 from app.llm.ollama_client import ollama_client
 from app.schemas.settings import SettingsResponse, SettingsUpdateRequest
 
@@ -25,6 +26,8 @@ async def get_settings() -> SettingsResponse:
         docker_allow_builds=settings.docker_allow_builds,
         startup_check_seconds=settings.startup_check_seconds,
         trivy_enabled=settings.trivy_enabled,
+        persisted=store.kind == "sqlite",
+        persistence=store.kind,
     )
 
 
@@ -40,4 +43,5 @@ async def update_settings(body: SettingsUpdateRequest) -> SettingsResponse:
         ollama_client.timeout = body.ollama_timeout
     if body.max_repair_attempts is not None:
         settings.max_repair_attempts = body.max_repair_attempts
+    persist_settings()
     return await get_settings()

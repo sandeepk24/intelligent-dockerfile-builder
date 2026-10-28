@@ -1,4 +1,4 @@
-"""In-memory domain records used until SQLite lands in Milestone 4."""
+"""Domain records shared by the memory store and SQLite persistence."""
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -97,4 +97,24 @@ class RepairRecord:
     explanation: str = ""
     decisions: list[str] = field(default_factory=list)
     status: str = "proposed"
+    created_at: datetime = field(default_factory=utcnow)
+
+
+@dataclass
+class EvaluationRecord:
+    """One evaluation event used for dashboard metrics."""
+
+    id: str
+    event: str
+    status: str
+    dockerfile_id: str | None = None
+    validation_id: str | None = None
+    project_id: str | None = None
+    language: str | None = None
+    framework: str | None = None
+    model: str | None = None
+    image_size_bytes: int | None = None
+    build_duration_ms: int | None = None
+    lint_finding_count: int = 0
+    trivy_finding_count: int = 0
     created_at: datetime = field(default_factory=utcnow)

@@ -7,7 +7,8 @@ from uuid import uuid4
 from app.analyzers.dockerfile_review import issues_to_dicts, review_dockerfile
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.db.memory_store import store
+from app.db.store import store
+from app.evaluators.metrics import record_validation_event
 from app.models.records import JobRecord, ValidationRecord
 from app.schemas.validation import ValidationResponse
 from app.validators.docker_build import build_image, docker_available, remove_image
@@ -114,6 +115,7 @@ async def run_validation_job(
             approved_build=should_build,
         )
         store.save_validation(validation)
+        record_validation_event(validation, dockerfile)
         store.update_job(job_id, status="completed", validation_id=validation.id)
     except Exception as exc:
         logger.exception("Validation job %s failed", job_id)

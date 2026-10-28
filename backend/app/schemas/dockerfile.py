@@ -72,6 +72,8 @@ class DockerfileSummary(BaseModel):
     status: str
     parent_id: str | None = None
     repair_attempt: int = 0
+    last_validation_status: str | None = None
+    image_size_bytes: int | None = None
     created_at: datetime
 
 

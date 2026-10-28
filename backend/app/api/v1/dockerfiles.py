@@ -74,8 +74,18 @@ async def optimize_dockerfile(
 
 
 @router.get("/dockerfiles/history", response_model=DockerfileHistoryResponse)
-async def dockerfile_history() -> DockerfileHistoryResponse:
-    items = [generation_service.to_summary(record) for record in generation_service.list_history()]
+async def dockerfile_history(
+    status: str | None = None,
+    language: str | None = None,
+    model: str | None = None,
+    q: str | None = None,
+) -> DockerfileHistoryResponse:
+    items = [
+        generation_service.to_summary(record)
+        for record in generation_service.list_history(
+            status=status, language=language, model=model, query=q
+        )
+    ]
     return DockerfileHistoryResponse(items=items)
 
 

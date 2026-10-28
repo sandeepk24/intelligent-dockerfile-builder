@@ -17,6 +17,8 @@ class SettingsResponse(BaseModel):
     docker_allow_builds: bool
     startup_check_seconds: int
     trivy_enabled: bool
+    persisted: bool = False
+    persistence: str = "memory"
 
 
 class SettingsUpdateRequest(BaseModel):

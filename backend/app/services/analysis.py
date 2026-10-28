@@ -10,7 +10,7 @@ from app.analyzers.dockerfile_review import issues_to_dicts, review_dockerfile
 from app.analyzers.scanner import scan_project
 from app.analyzers.zip_import import extract_zip
 from app.core.paths import resolve_workspace_path, workspace_root
-from app.db.memory_store import store
+from app.db.store import store
 from app.models.records import ProjectRecord
 from app.schemas.dockerfile import DockerfileIssueResponse
 from app.schemas.project import ProjectAnalysisResponse, WorkspaceProject

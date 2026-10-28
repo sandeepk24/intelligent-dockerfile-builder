@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from app.db.query import matches_history_filters
 from app.models.records import (
     DockerfileRecord,
+    EvaluationRecord,
     JobRecord,
     ProjectRecord,
     RepairRecord,
@@ -23,6 +25,8 @@ class MemoryStore:
         self.jobs: dict[str, JobRecord] = {}
         self.validations: dict[str, ValidationRecord] = {}
         self.repairs: dict[str, RepairRecord] = {}
+        self.evaluations: dict[str, EvaluationRecord] = {}
+        self.settings: dict[str, str] = {}
 
     def clear(self) -> None:
         self.projects.clear()
@@ -30,6 +34,8 @@ class MemoryStore:
         self.jobs.clear()
         self.validations.clear()
         self.repairs.clear()
+        self.evaluations.clear()
+        self.settings.clear()
 
     def save_project(self, project: ProjectRecord) -> ProjectRecord:
         self.projects[project.id] = project
@@ -45,8 +51,27 @@ class MemoryStore:
     def get_dockerfile(self, dockerfile_id: str) -> DockerfileRecord | None:
         return self.dockerfiles.get(dockerfile_id)
 
-    def list_dockerfiles(self) -> list[DockerfileRecord]:
-        return sorted(self.dockerfiles.values(), key=lambda item: item.created_at, reverse=True)
+    def list_dockerfiles(
+        self,
+        *,
+        status: str | None = None,
+        language: str | None = None,
+        model: str | None = None,
+        query: str | None = None,
+    ) -> list[DockerfileRecord]:
+        items = sorted(self.dockerfiles.values(), key=lambda item: item.created_at, reverse=True)
+        return [
+            item
+            for item in items
+            if matches_history_filters(
+                item,
+                self.projects.get(item.project_id),
+                status=status,
+                language=language,
+                model=model,
+                query=query,
+            )
+        ]
 
     def save_job(self, job: JobRecord) -> JobRecord:
         self.jobs[job.id] = job
@@ -113,5 +138,21 @@ class MemoryStore:
             1 for item in self.repairs.values() if item.source_dockerfile_id == dockerfile_id
         )
 
+    def list_all_repairs(self) -> list[RepairRecord]:
+        return list(self.repairs.values())
 
-store = MemoryStore()
+    def save_evaluation(self, record: EvaluationRecord) -> EvaluationRecord:
+        self.evaluations[record.id] = record
+        return record
+
+    def list_evaluations(self) -> list[EvaluationRecord]:
+        return sorted(self.evaluations.values(), key=lambda item: item.created_at, reverse=True)
+
+    def get_setting(self, key: str) -> str | None:
+        return self.settings.get(key)
+
+    def set_setting(self, key: str, value: str) -> None:
+        self.settings[key] = value
+
+    def list_settings(self) -> dict[str, str]:
+        return dict(self.settings)

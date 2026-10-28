@@ -6,7 +6,8 @@ from uuid import uuid4
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.db.memory_store import store
+from app.db.store import store
+from app.evaluators.metrics import record_dockerfile_event
 from app.generators.dockerfile import project_to_analysis, repair_from_failure
 from app.generators.dockerignore import generate_dockerignore
 from app.llm.factory import get_llm_provider
@@ -98,6 +99,7 @@ async def run_repair_job(
             repair_attempt=attempt,
         )
         store.save_dockerfile(result)
+        record_dockerfile_event(result)
         repair = RepairRecord(
             id=str(uuid4()),
             validation_id=validation_id,
@@ -123,7 +125,7 @@ def count_lineage_repairs(dockerfile_id: str) -> int:
         chain.add(current)
         record = store.get_dockerfile(current)
         current = record.parent_id if record else None
-    return sum(1 for item in store.repairs.values() if item.source_dockerfile_id in chain)
+    return sum(1 for item in store.list_all_repairs() if item.source_dockerfile_id in chain)
 
 
 def list_repairs(dockerfile_id: str) -> list[RepairRecord]:

@@ -1,11 +1,23 @@
 """FastAPI application factory."""
 
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.core.logging import setup_logging
+from app.core.logging import get_logger, setup_logging
+from app.db.store import configure_persistence
+
+logger = get_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_application: FastAPI):
+    configure_persistence()
+    yield
 
 
 def create_app() -> FastAPI:
@@ -18,6 +30,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     application.add_middleware(
@@ -29,6 +42,14 @@ def create_app() -> FastAPI:
     )
 
     application.include_router(api_router)
+
+    @application.exception_handler(Exception)
+    async def unhandled_error(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("Unhandled error on %s: %s", request.url.path, exc)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "An unexpected error occurred"},
+        )
 
     return application
 
