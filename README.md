@@ -6,7 +6,7 @@ You point it at a project. It inspects the source, detects the language and how 
 
 No paid LLM APIs. Nothing leaves your machine except the local Ollama call.
 
-**Status:** Milestones 1–3 are working (analyze, generate, review/optimize, Hadolint, isolated Docker builds, optional Trivy, and AI repair). SQLite persistence is next.
+**Status:** Milestones 1–4 are complete: analyze, generate, review/optimize, isolated validation, AI repair, and SQLite-backed history and metrics.
 
 ---
 
@@ -111,7 +111,7 @@ You can:
 - download both `Dockerfile` and `.dockerignore`
 - regenerate with extra instructions (keeps the same analyzed project)
 
-**History** lists every generation in the current backend process, including repaired files. **Dashboard** shows session counts for generations, successful builds, average build time, and repairs. **Settings** lets you change the Ollama URL, default model, timeout, and max repair attempts.
+**History** lists generations, optimizations, and repairs with filters for language, status, and search. **Dashboard** shows counts, build success rate, average image size, and breakdowns by language and model. **Settings** lets you change the Ollama URL, default model, timeout, and max repair attempts; those values are stored in SQLite.
 
 ### 5. Validate a Dockerfile and repair failures
 
@@ -136,18 +136,9 @@ The builder treats uploaded projects as untrusted:
 - Docker builds require both `approve_build` and `confirm_untrusted_execution`
 - repair prompts wrap build logs as data; the model cannot request host commands
 
----
+### 7. Keep history on disk
 
-## What it does not do yet
-
-These are planned, not implemented:
-
-| Feature | When |
-|---------|------|
-| SQLite history that survives a restart | Milestone 4 |
-| Persistent evaluation metrics (build time, size, lint findings) | Milestone 4 |
-
-Until then, history lives in memory. Restarting the backend clears generated Dockerfiles.
+History, validations, repairs, evaluation metrics, and operator settings are stored in a local SQLite file (`DATABASE_URL`). Restarting the backend keeps them.
 
 ---
 
@@ -272,8 +263,9 @@ Copy `.env.example` to `.env` next to the backend. Important settings:
 | `DOCKER_SANDBOX_DIR` | Throwaway build-context directory |
 | `STARTUP_CHECK_SECONDS` | How long a process must stay up during the optional run check |
 | `MAX_REPAIR_ATTEMPTS` | Cap on AI repair attempts per Dockerfile lineage (default 3) |
+| `DATABASE_URL` | SQLite URL (`sqlite+aiosqlite:///./intelligent_dockerfile_builder.db`). Set to `memory` to disable persistence. |
 
-Ollama URL and default model can also be changed at runtime on the **Settings** page.
+Ollama URL and default model can also be changed at runtime on the **Settings** page and are written to SQLite.
 
 ---
 
@@ -301,6 +293,8 @@ intelligent-dockerfile-builder/
 # Backend
 cd backend && pytest
 cd backend && ruff check . && ruff format --check .
+cd backend && alembic upgrade head
+
 
 # Frontend
 cd frontend && npm run type-check

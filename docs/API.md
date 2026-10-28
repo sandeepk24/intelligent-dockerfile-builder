@@ -7,13 +7,13 @@ Interactive docs: `http://localhost:8000/docs`
 ## Health & Discovery
 
 ### GET /health
-Check backend, Ollama, Docker, Hadolint, and Trivy availability.
+Check backend, Ollama, Docker, Hadolint, Trivy, and whether data is stored in SQLite or memory (`persistence`).
 
 ### GET /models
 List available Ollama models.
 
 ### GET /stats
-In-memory session metrics: generated Dockerfiles, validation counts, successful builds, average build time, and repairs.
+Dashboard metrics: generated Dockerfiles, validation counts, successful builds, average build time and image size, success rate, and breakdowns by language, model, and status.
 
 ## Workspace
 
@@ -123,7 +123,7 @@ Retrieve a generated or optimized Dockerfile, original file (if any), issues, `.
 Save user edits to Dockerfile and/or `.dockerignore`.
 
 ### GET /dockerfiles/history
-List previously generated Dockerfiles for this process. Persistence is in-memory until Milestone 4.
+List generated Dockerfiles. Optional query params: `status`, `language`, `model`, `q` (search project name, stack, or model). Results persist in SQLite across restarts.
 
 ### POST /dockerfiles/{id}/validate
 Start a background validation job. Lint (Hadolint + static review) always runs. A Docker build runs only when both flags are true.
@@ -169,4 +169,4 @@ Repair history for this Dockerfile, including `attempts_used` and `max_attempts`
 Return current application settings.
 
 ### PUT /settings
-Update Ollama endpoint, default model, timeout, and max repair attempts.
+Update Ollama endpoint, default model, timeout, and max repair attempts. Changes are written to SQLite (`app_settings`) so they survive a restart.

@@ -41,13 +41,13 @@
 - [x] Repair attempt tracking (max 3)
 - [x] Validation and repair history UI
 
-## Milestone 4 — Dashboard and Evaluation
+## Milestone 4 — Dashboard and Evaluation ✅
 
-- [ ] SQLite persistence with Alembic migrations
-- [ ] Evaluation metrics collection
-- [ ] Dashboard with statistics
-- [ ] History page with filtering
-- [ ] Settings management
-- [ ] End-to-end tests
-- [ ] Error handling polish
-- [ ] Final documentation update
+- [x] SQLite persistence with Alembic migrations
+- [x] Evaluation metrics collection
+- [x] Dashboard with statistics
+- [x] History page with filtering
+- [x] Settings management
+- [x] End-to-end tests
+- [x] Error handling polish
+- [x] Final documentation update

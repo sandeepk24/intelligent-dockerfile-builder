@@ -83,15 +83,17 @@ User Action → React UI → API Client → FastAPI Endpoint
 
 ## Persistence
 
-Milestones 2–3 store projects, Dockerfiles, jobs, validations, and repairs in process memory (`app/db/memory_store.py`). Restarting the backend clears history. SQLite + Alembic land in Milestone 4.
+The app persists to SQLite (`app/db/sqlite_store.py`) using SQLAlchemy 2.0. Alembic migrations live in `backend/alembic/`. Tests keep an in-memory store so they stay fast and isolated.
 
-Planned SQLite schema:
+SQLite schema:
 
 - **projects**: Analyzed project metadata
 - **dockerfiles**: Generated Dockerfile content and metadata
+- **jobs**: Background generate/validate/repair jobs
 - **validations**: Build/lint/scan results per Dockerfile
 - **repairs**: AI repair attempts linked to validations
-- **evaluations**: Aggregated metrics per generation
+- **evaluations**: Per-event metrics (generation, validation, repair)
+- **app_settings**: Operator overrides (Ollama URL, model, timeout, repair cap)
 
 ## API Versioning
 
