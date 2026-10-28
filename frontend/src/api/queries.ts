@@ -189,10 +189,32 @@ export function useSessionStats() {
   });
 }
 
-export function useDockerfileHistory() {
+export function useDockerfileHistory(filters?: {
+  status?: string;
+  language?: string;
+  model?: string;
+  q?: string;
+}) {
+  const params = new URLSearchParams();
+  if (filters?.status) {
+    params.set("status", filters.status);
+  }
+  if (filters?.language) {
+    params.set("language", filters.language);
+  }
+  if (filters?.model) {
+    params.set("model", filters.model);
+  }
+  if (filters?.q) {
+    params.set("q", filters.q);
+  }
+  const query = params.toString();
   return useQuery<DockerfileHistoryResponse>({
-    queryKey: ["dockerfile-history"],
-    queryFn: () => api.get<DockerfileHistoryResponse>("/dockerfiles/history"),
+    queryKey: ["dockerfile-history", filters],
+    queryFn: () =>
+      api.get<DockerfileHistoryResponse>(
+        `/dockerfiles/history${query ? `?${query}` : ""}`
+      ),
   });
 }
 

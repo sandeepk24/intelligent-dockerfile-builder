@@ -8,6 +8,7 @@ import { History } from "@/pages/History";
 import { Settings } from "@/pages/Settings";
 import { ToastProvider } from "@/hooks/useToast";
 import { ToastViewport } from "@/components/common/Toast";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,7 +25,13 @@ function App() {
       <ToastProvider>
         <BrowserRouter>
           <Routes>
-            <Route element={<AppLayout />}>
+            <Route
+              element={
+                <ErrorBoundary>
+                  <AppLayout />
+                </ErrorBoundary>
+              }
+            >
               <Route path="/" element={<Dashboard />} />
               <Route path="/new" element={<NewDockerfile />} />
               <Route path="/workspace" element={<Workspace />} />

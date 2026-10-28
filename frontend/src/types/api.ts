@@ -6,6 +6,12 @@ export interface HealthResponse {
   docker_available: boolean;
   hadolint_available: boolean;
   trivy_available: boolean;
+  persistence: string;
+}
+
+export interface CountBucket {
+  key: string;
+  count: number;
 }
 
 export interface SessionStats {
@@ -15,6 +21,12 @@ export interface SessionStats {
   failed_validations: number;
   repairs_applied: number;
   avg_build_time_ms: number | null;
+  avg_image_size_bytes: number | null;
+  build_success_rate: number | null;
+  persistence: string;
+  by_language: CountBucket[];
+  by_model: CountBucket[];
+  by_status: CountBucket[];
 }
 
 export interface OllamaModel {
@@ -107,6 +119,8 @@ export interface DockerfileSummary {
   status: string;
   parent_id: string | null;
   repair_attempt: number;
+  last_validation_status: string | null;
+  image_size_bytes: number | null;
   created_at: string;
 }
 
@@ -128,6 +142,8 @@ export interface AppSettings {
   docker_allow_builds: boolean;
   startup_check_seconds: number;
   trivy_enabled: boolean;
+  persisted: boolean;
+  persistence: string;
 }
 
 export interface ToolStepResult {

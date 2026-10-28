@@ -53,7 +53,7 @@ export function Settings() {
     <div>
       <Header
         title="Settings"
-        description="Configure Ollama, Docker, and validation options"
+        description="Ollama, Docker, and validation options. Saved settings survive a restart."
       />
       <div className="space-y-6 p-8">
         <Card>
@@ -64,6 +64,11 @@ export function Settings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <Field label="Storage">
+              <Badge variant={settings?.persisted ? "success" : "outline"}>
+                {settings?.persistence === "sqlite" ? "SQLite" : "in-memory"}
+              </Badge>
+            </Field>
             {isLoading ? (
               <Spinner />
             ) : (

@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/Ca
 import { Badge } from "@/components/common/Badge";
 import { Button } from "@/components/common/Button";
 import { Spinner } from "@/components/common/Spinner";
-import { formatDuration } from "@/lib/utils";
+import { formatBytes, formatDuration } from "@/lib/utils";
 import { useDockerfileHistory, useHealth, useModels, useSessionStats } from "@/api/queries";
 
 export function Dashboard() {
@@ -26,7 +26,7 @@ export function Dashboard() {
     <div>
       <Header
         title="Dashboard"
-        description="Intelligent Dockerfile generation overview"
+        description="Generation, validation, and repair metrics"
       >
         <Link to="/new">
           <Button>
@@ -43,7 +43,7 @@ export function Dashboard() {
             icon={Container}
             title="Dockerfiles Generated"
             value={String(generatedCount)}
-            description="This session"
+            description={stats?.persistence === "sqlite" ? "Stored in SQLite" : "This process"}
           />
           <StatsCard
             icon={CheckCircle2}
@@ -55,13 +55,21 @@ export function Dashboard() {
             icon={Clock}
             title="Avg Build Time"
             value={formatDuration(stats?.avg_build_time_ms)}
-            description="Approved Docker builds"
+            description={
+              stats?.build_success_rate != null
+                ? `${Math.round(stats.build_success_rate * 100)}% approved builds passed`
+                : "Approved Docker builds"
+            }
           />
           <StatsCard
             icon={AlertTriangle}
             title="Repairs Applied"
             value={String(stats?.repairs_applied ?? 0)}
-            description={`${stats?.failed_validations ?? 0} failed validations`}
+            description={
+              stats?.avg_image_size_bytes
+                ? `Avg image ${formatBytes(stats.avg_image_size_bytes)}`
+                : `${stats?.failed_validations ?? 0} failed validations`
+            }
           />
         </div>
 
@@ -107,6 +115,11 @@ export function Dashboard() {
                     label="Trivy"
                     status={health.trivy_available ? "connected" : "disconnected"}
                     detail={health.trivy_available ? "optional scan" : "not installed"}
+                  />
+                  <StatusRow
+                    label="Persistence"
+                    status={health.persistence === "sqlite" ? "connected" : "disconnected"}
+                    detail={health.persistence === "sqlite" ? "SQLite" : "memory"}
                   />
                   {!health.ollama_connected && (
                     <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 p-3">
@@ -178,6 +191,13 @@ export function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {(stats?.by_language.length || stats?.by_model.length) ? (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <BreakdownCard title="By language" items={stats?.by_language ?? []} />
+            <BreakdownCard title="By model" items={stats?.by_model ?? []} />
+          </div>
+        ) : null}
 
         {recent.length > 0 && (
           <Card>
@@ -311,6 +331,43 @@ function QuickAction({
       </div>
       <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
     </Link>
+  );
+}
+
+function BreakdownCard({
+  title,
+  items,
+}: {
+  title: string;
+  items: { key: string; count: number }[];
+}) {
+  const total = items.reduce((sum, item) => sum + item.count, 0) || 1;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No data yet.</p>
+        ) : (
+          items.map((item) => (
+            <div key={item.key}>
+              <div className="mb-1 flex justify-between text-xs">
+                <span>{item.key}</span>
+                <span className="text-muted-foreground">{item.count}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded bg-muted">
+                <div
+                  className="h-full bg-primary"
+                  style={{ width: `${Math.max(8, (item.count / total) * 100)}%` }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
