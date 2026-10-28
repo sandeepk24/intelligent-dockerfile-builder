@@ -16,6 +16,7 @@ async def test_health_endpoint(client):
     assert "docker_available" in data
     assert "hadolint_available" in data
     assert "trivy_available" in data
+    assert data["persistence"] == "memory"
 
 
 @pytest.mark.asyncio

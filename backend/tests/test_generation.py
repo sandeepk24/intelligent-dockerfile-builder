@@ -49,6 +49,19 @@ async def test_generate_dockerfile_job(client, monkeypatch):
     assert history.status_code == 200
     assert len(history.json()["items"]) == 1
 
+    filtered = await client.get(
+        "/api/v1/dockerfiles/history",
+        params={"language": "python", "status": "edited", "q": "fastapi"},
+    )
+    assert filtered.status_code == 200
+    assert len(filtered.json()["items"]) == 1
+    empty = await client.get("/api/v1/dockerfiles/history", params={"language": "go"})
+    assert empty.json()["items"] == []
+
+    stats = await client.get("/api/v1/stats")
+    assert stats.json()["dockerfiles_generated"] == 1
+    assert stats.json()["by_language"][0]["key"] == "python"
+
 
 @pytest.mark.asyncio
 async def test_generate_fails_when_ollama_offline(client, monkeypatch):

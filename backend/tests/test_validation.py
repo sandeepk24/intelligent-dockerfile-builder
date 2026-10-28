@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.db.memory_store import store
+from app.db.store import store
 from app.models.records import RepairRecord, utcnow
 from tests.fakes import FakeLLMProvider
 
