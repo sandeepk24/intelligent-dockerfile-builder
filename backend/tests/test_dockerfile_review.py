@@ -30,6 +30,44 @@ def test_flags_full_official_base_when_a_smaller_variant_exists():
     assert "full-base-image" in {issue.code for issue in bookworm}
 
 
+def test_flags_sdk_image_used_as_the_shipped_image():
+    single_stage = """\
+FROM golang:1.23-alpine
+WORKDIR /src
+COPY . .
+RUN go build -o /out/app .
+CMD ["/out/app"]
+"""
+    issues = review_dockerfile(single_stage)
+    match = next(issue for issue in issues if issue.code == "sdk-final-image")
+    assert "multi-stage" in match.suggestion
+
+    final_stage_still_sdk = """\
+FROM golang:1.23-alpine AS build
+WORKDIR /src
+RUN go build -o /out/app .
+FROM golang:1.23-alpine
+COPY --from=build /out/app /out/app
+CMD ["/out/app"]
+"""
+    issues = review_dockerfile(final_stage_still_sdk)
+    assert any(issue.code == "sdk-final-image" for issue in issues)
+
+
+def test_runtime_stage_after_sdk_is_not_flagged():
+    dockerfile = """\
+FROM golang:1.23-alpine AS build
+WORKDIR /src
+RUN go build -o /out/app .
+FROM gcr.io/distroless/static-debian12
+COPY --from=build /out/app /out/app
+USER nonroot
+CMD ["/out/app"]
+"""
+    issues = review_dockerfile(dockerfile)
+    assert "sdk-final-image" not in {issue.code for issue in issues}
+
+
 def test_smaller_base_variants_are_not_flagged():
     for image in (
         "python:3.12-slim",

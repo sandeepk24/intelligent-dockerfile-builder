@@ -48,6 +48,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues: list[DockerfileIssue] = []
     issues.extend(_check_from(lines))
     issues.extend(_check_base_variant(lines))
+    issues.extend(_check_sdk_final_image(lines))
     issues.extend(_check_user(lines))
     issues.extend(_check_add_and_copy(lines))
     issues.extend(_check_package_installs(lines))
@@ -156,6 +157,57 @@ def _check_base_variant(lines: list[str]) -> list[DockerfileIssue]:
                 "extra OS packages that the running process does not need."
             ),
             suggestion=f"Prefer a smaller official variant such as `{suggestion}`.",
+            line=number,
+        )
+    ]
+
+
+_SDK_RUNTIMES = {
+    "golang": "a scratch or distroless image that contains only the compiled binary",
+    "rust": "a slim or distroless image that contains only the compiled binary",
+    "maven": "a JRE image that contains only the built artifact",
+    "gradle": "a JRE image that contains only the built artifact",
+    "gcc": "a slim runtime image that contains only the compiled binary",
+}
+
+
+def _check_sdk_final_image(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag a compiler SDK that is still the image being shipped.
+
+    A second FROM means a build stage already exists. The finding stays when
+    that later stage is still the SDK, because the compilers ship anyway.
+    """
+    stage = _final_stage(lines)
+    from_instruction = _first_from(stage)
+    if from_instruction is None:
+        return []
+    number, raw = from_instruction
+    image = _image_reference(raw).split("@", 1)[0]
+    repository = image.split("/")[-1].split(":")[0].lower()
+    runtime = _SDK_RUNTIMES.get(repository)
+    if runtime is None:
+        return []
+    stage_count = sum(
+        1 for item in _stages(lines) if item and item[0][1].upper().startswith("FROM ")
+    )
+    if stage_count >= 2:
+        detail = (
+            f"Line {number} uses `{image}` for the final stage, so the compiler toolchain "
+            "is still part of the shipped image."
+        )
+        suggestion = f"Keep `{repository}` in the build stage and copy the artifact into {runtime}."
+    else:
+        detail = f"Line {number} uses `{image}` as the only stage, so the SDK ships with the application."
+        suggestion = (
+            f"Add a multi-stage build. Compile here, then copy the artifact into {runtime}."
+        )
+    return [
+        DockerfileIssue(
+            code="sdk-final-image",
+            severity="medium",
+            title="Final image includes a compiler SDK",
+            detail=detail,
+            suggestion=suggestion,
             line=number,
         )
     ]
