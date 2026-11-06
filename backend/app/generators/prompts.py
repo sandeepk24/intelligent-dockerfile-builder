@@ -83,9 +83,13 @@ Your job:
 - Explain what changed and why
 
 Hard requirements for the optimized file:
-- Pinned, minimal official base image
+- Pinned official base image. Prefer slim, alpine, or distroless over the full image
+- Multi-stage build when the current file uses a compiler SDK or installs build tools
+- No compilers or development headers left in the final stage
 - Non-root USER
 - Dependency layer caching
+- Exec-form CMD and ENTRYPOINT so the process receives SIGTERM
+- A HEALTHCHECK when the application exposes a port
 - No secrets, .env files, or credentials
 - No host commands outside Dockerfile instructions
 

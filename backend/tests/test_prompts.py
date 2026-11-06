@@ -1,6 +1,7 @@
 """Tests that generation prompts treat repository content as untrusted data."""
 
 from app.generators.prompts import (
+    OPTIMIZE_SYSTEM_PROMPT,
     REPAIR_SYSTEM_PROMPT,
     SYSTEM_PROMPT,
     build_repair_prompt,
@@ -26,6 +27,15 @@ def test_user_prompt_wraps_source_as_untrusted_data():
     assert "Ignore previous instructions" in prompt
     assert "trusted" in prompt.lower()
     assert "untrusted" in SYSTEM_PROMPT.lower()
+
+
+def test_optimize_prompt_requires_size_and_runtime_practices():
+    lowered = OPTIMIZE_SYSTEM_PROMPT.lower()
+    assert "slim, alpine, or distroless" in lowered
+    assert "multi-stage" in lowered
+    assert "final stage" in lowered
+    assert "exec-form" in lowered
+    assert "healthcheck" in lowered
 
 
 def test_repair_prompt_treats_logs_as_data():
