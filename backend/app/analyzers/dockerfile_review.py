@@ -47,6 +47,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     lines = content.splitlines()
     issues: list[DockerfileIssue] = []
     issues.extend(_check_from(lines))
+    issues.extend(_check_base_variant(lines))
     issues.extend(_check_user(lines))
     issues.extend(_check_add_and_copy(lines))
     issues.extend(_check_package_installs(lines))
@@ -106,6 +107,58 @@ def _check_from(lines: list[str]) -> list[DockerfileIssue]:
             )
         )
     return issues
+
+
+# Official images that publish a smaller variant. The tag is the part after ':'.
+_SMALLER_BASE_SUGGESTIONS = {
+    "python": "python:3.12-slim",
+    "node": "node:22-alpine",
+    "ruby": "ruby:3.3-slim",
+    "golang": "golang:1.23-alpine",
+    "openjdk": "eclipse-temurin:21-jre-alpine",
+    "eclipse-temurin": "eclipse-temurin:21-jre-alpine",
+}
+_SMALL_TAG_MARKERS = ("slim", "alpine", "distroless")
+_RUNTIME_TAG_MARKERS = ("jre",)
+
+
+def _check_base_variant(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag a pinned full official image when a smaller variant exists.
+
+    Untagged images and `:latest` are already reported by `_check_from`.
+    This check only fires when the tag is specific but still a full image,
+    for example `python:3.12` or `python:3.12-bookworm`.
+    """
+    stage = _final_stage(lines)
+    from_instruction = _first_from(stage)
+    if from_instruction is None:
+        return []
+    number, raw = from_instruction
+    image = _image_reference(raw).split("@", 1)[0]
+    name = image.split("/")[-1]
+    if ":" not in name:
+        return []
+    repository, tag = name.rsplit(":", 1)
+    family = repository.lower()
+    if family not in _SMALLER_BASE_SUGGESTIONS or tag.lower() == "latest":
+        return []
+    tag_parts = set(tag.lower().split("-"))
+    if tag_parts.intersection(_SMALL_TAG_MARKERS) or tag_parts.intersection(_RUNTIME_TAG_MARKERS):
+        return []
+    suggestion = _SMALLER_BASE_SUGGESTIONS[family]
+    return [
+        DockerfileIssue(
+            code="full-base-image",
+            severity="medium",
+            title="Final base image is larger than necessary",
+            detail=(
+                f"Line {number} uses `{image}`. That tag includes build tooling and "
+                "extra OS packages that the running process does not need."
+            ),
+            suggestion=f"Prefer a smaller official variant such as `{suggestion}`.",
+            line=number,
+        )
+    ]
 
 
 def _check_user(lines: list[str]) -> list[DockerfileIssue]:
@@ -334,6 +387,47 @@ def _check_privileged_patterns(lines: list[str]) -> list[DockerfileIssue]:
                 )
             )
     return issues
+
+
+def _final_stage(lines: list[str]) -> list[tuple[int, str]]:
+    stages = [
+        stage for stage in _stages(lines) if stage and stage[0][1].upper().startswith("FROM ")
+    ]
+    return stages[-1] if stages else []
+
+
+def _first_from(stage: list[tuple[int, str]]) -> tuple[int, str] | None:
+    for instruction in stage:
+        if instruction[1].upper().startswith("FROM "):
+            return instruction
+    return None
+
+
+def _stages(lines: list[str]) -> list[list[tuple[int, str]]]:
+    stages: list[list[tuple[int, str]]] = []
+    current: list[tuple[int, str]] = []
+    for instruction in _instructions(lines):
+        if instruction[1].upper().startswith("FROM ") and current:
+            stages.append(current)
+            current = [instruction]
+            continue
+        current.append(instruction)
+    if current:
+        stages.append(current)
+    return stages
+
+
+def _image_reference(instruction: str) -> str:
+    """Return the image token from a FROM instruction, ignoring flags and stage names."""
+    tokens = instruction.split()
+    if not tokens or tokens[0].upper() != "FROM":
+        return ""
+    index = 1
+    while index < len(tokens) and tokens[index].startswith("--"):
+        index += 2 if "=" not in tokens[index] else 1
+    if index >= len(tokens):
+        return ""
+    return tokens[index]
 
 
 def _instructions(lines: list[str]) -> list[tuple[int, str]]:
