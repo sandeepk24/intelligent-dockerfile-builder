@@ -40,6 +40,21 @@ USER appuser
     assert "shell-form-command" not in {issue.code for issue in issues}
 
 
+def test_flags_missing_healthcheck_and_includes_detected_port():
+    issues = review_dockerfile(_runtime_dockerfile("python:3.12-slim"), ports=[8000])
+    match = next(issue for issue in issues if issue.code == "missing-healthcheck")
+    assert match.severity == "low"
+    assert "127.0.0.1:8000" in match.suggestion
+
+
+def test_explicit_healthcheck_is_not_flagged():
+    present = _runtime_dockerfile("python:3.12-slim") + "HEALTHCHECK CMD python -c 'print(1)'\n"
+    disabled = _runtime_dockerfile("python:3.12-slim") + "HEALTHCHECK NONE\n"
+    for dockerfile in (present, disabled):
+        issues = review_dockerfile(dockerfile, ports=[8000])
+        assert "missing-healthcheck" not in {issue.code for issue in issues}
+
+
 def test_flags_common_problems_in_unoptimized_sample():
     issues = review_dockerfile(SAMPLE.read_text(), ports=[8000])
     codes = {issue.code for issue in issues}
@@ -50,6 +65,7 @@ def test_flags_common_problems_in_unoptimized_sample():
     assert "explicit-root-user" in codes
     assert "copy-context-too-early" in codes
     assert "shell-form-command" in codes
+    assert "missing-healthcheck" in codes
 
 
 def test_flags_full_official_base_when_a_smaller_variant_exists():

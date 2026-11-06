@@ -57,6 +57,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_workdir_and_command(lines))
     issues.extend(_check_exec_form(lines))
     issues.extend(_check_expose(lines, ports or []))
+    issues.extend(_check_healthcheck(lines, ports or []))
     issues.extend(_check_privileged_patterns(lines))
     return issues
 
@@ -538,6 +539,31 @@ def _check_expose(lines: list[str], ports: list[int]) -> list[DockerfileIssue]:
             )
         ]
     return []
+
+
+def _check_healthcheck(lines: list[str], ports: list[int]) -> list[DockerfileIssue]:
+    for _number, raw in _instructions(lines):
+        if raw.upper().startswith("HEALTHCHECK "):
+            return []
+    if ports:
+        suggestion = (
+            "Add a HEALTHCHECK that probes the application without a new package, "
+            "for example `HEALTHCHECK CMD python -c "
+            f"\"import urllib.request; urllib.request.urlopen('http://127.0.0.1:{ports[0]}/health')\"`."
+        )
+    else:
+        suggestion = "Add a HEALTHCHECK that probes a local readiness endpoint."
+    return [
+        DockerfileIssue(
+            code="missing-healthcheck",
+            severity="low",
+            title="No HEALTHCHECK instruction",
+            detail=(
+                "Orchestrators cannot tell a running process from an application that is ready to serve."
+            ),
+            suggestion=suggestion,
+        )
+    ]
 
 
 def _check_privileged_patterns(lines: list[str]) -> list[DockerfileIssue]:
