@@ -49,6 +49,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_from(lines))
     issues.extend(_check_base_variant(lines))
     issues.extend(_check_sdk_final_image(lines))
+    issues.extend(_check_build_dependencies(lines))
     issues.extend(_check_user(lines))
     issues.extend(_check_add_and_copy(lines))
     issues.extend(_check_package_installs(lines))
@@ -211,6 +212,84 @@ def _check_sdk_final_image(lines: list[str]) -> list[DockerfileIssue]:
             line=number,
         )
     ]
+
+
+_BUILD_PACKAGES = (
+    "build-essential",
+    "g++",
+    "gcc",
+    "make",
+    "cmake",
+    "pkg-config",
+    "python3-dev",
+    "python-dev",
+    "musl-dev",
+    "libc-dev",
+    "linux-headers",
+)
+_PACKAGE_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9.+-]*")
+
+
+def _check_build_dependencies(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag compilers installed in the stage that gets shipped.
+
+    Packages removed in the same RUN, or by a later RUN in that stage, are
+    not left in the image and are ignored. Earlier build stages are ignored.
+    """
+    lingering: list[int] = []
+    for number, raw in _final_stage(lines):
+        if not raw.upper().startswith("RUN "):
+            continue
+        if _installs_build_tool(raw) and not _removes_build_tool(raw):
+            lingering.append(number)
+        elif _removes_build_tool(raw):
+            lingering.clear()
+    if not lingering:
+        return []
+    line = lingering[0]
+    return [
+        DockerfileIssue(
+            code="build-deps-in-final-image",
+            severity="medium",
+            title="Build tools remain in the final image",
+            detail=(
+                f"Line {line} installs a compiler or development headers in the stage that ships."
+            ),
+            suggestion=(
+                "Install build tools in an earlier stage and copy only the artifact forward, "
+                "or remove the packages in the same RUN instruction."
+            ),
+            line=line,
+        )
+    ]
+
+
+def _installs_build_tool(instruction: str) -> bool:
+    lowered = instruction.lower()
+    if not re.search(r"\b(apt-get|apt|apk|yum|dnf|microdnf)\b", lowered):
+        return False
+    if not re.search(r"\b(install|add)\b", lowered):
+        return False
+    return _mentions_build_package(lowered)
+
+
+def _removes_build_tool(instruction: str) -> bool:
+    lowered = instruction.lower()
+    if not re.search(r"\b(remove|purge|autoremove|del)\b", lowered):
+        return False
+    return _mentions_build_package(lowered)
+
+
+def _mentions_build_package(text: str) -> bool:
+    for token in _PACKAGE_TOKEN_RE.findall(text):
+        for package in _BUILD_PACKAGES:
+            if (
+                token == package
+                or token.startswith(f"{package}-")
+                or token.startswith(f"{package}=")
+            ):
+                return True
+    return False
 
 
 def _check_user(lines: list[str]) -> list[DockerfileIssue]:

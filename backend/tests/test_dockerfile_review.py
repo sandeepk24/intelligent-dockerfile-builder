@@ -54,6 +54,48 @@ CMD ["/out/app"]
     assert any(issue.code == "sdk-final-image" for issue in issues)
 
 
+def test_flags_build_tools_left_in_the_final_stage():
+    dockerfile = """\
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y build-essential \\
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY . .
+CMD ["python", "app.py"]
+"""
+    issues = review_dockerfile(dockerfile)
+    assert any(issue.code == "build-deps-in-final-image" for issue in issues)
+
+    alpine = """\
+FROM python:3.12-alpine
+RUN apk add --no-cache g++ musl-dev
+CMD ["python", "app.py"]
+"""
+    issues = review_dockerfile(alpine)
+    assert any(issue.code == "build-deps-in-final-image" for issue in issues)
+
+
+def test_build_tools_removed_or_isolated_are_not_flagged():
+    purged = """\
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y gcc \\
+    && apt-get purge -y gcc \\
+    && rm -rf /var/lib/apt/lists/*
+CMD ["python", "app.py"]
+"""
+    isolated = """\
+FROM python:3.12-slim AS build
+RUN apt-get update && apt-get install -y build-essential
+FROM python:3.12-slim
+COPY --from=build /app /app
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    for dockerfile in (purged, isolated):
+        issues = review_dockerfile(dockerfile)
+        assert "build-deps-in-final-image" not in {issue.code for issue in issues}
+
+
 def test_runtime_stage_after_sdk_is_not_flagged():
     dockerfile = """\
 FROM golang:1.23-alpine AS build
