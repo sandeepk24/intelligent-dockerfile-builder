@@ -55,6 +55,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_package_installs(lines))
     issues.extend(_check_secrets(lines))
     issues.extend(_check_workdir_and_command(lines))
+    issues.extend(_check_exec_form(lines))
     issues.extend(_check_expose(lines, ports or []))
     issues.extend(_check_privileged_patterns(lines))
     return issues
@@ -473,6 +474,42 @@ def _check_workdir_and_command(lines: list[str]) -> list[DockerfileIssue]:
                 title="No CMD or ENTRYPOINT",
                 detail="The image has no default process to start.",
                 suggestion="Add a CMD that launches the detected application entry point.",
+            )
+        )
+    return issues
+
+
+_COMMAND_RE = re.compile(r"^(CMD|ENTRYPOINT)\s+(.*)$", re.IGNORECASE)
+
+
+def _check_exec_form(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag shell-form CMD or ENTRYPOINT.
+
+    Shell form wraps the process in `/bin/sh -c`, so the shell is PID 1 and
+    may ignore SIGTERM. Only the last instruction of each kind takes effect.
+    """
+    last: dict[str, tuple[int, str]] = {}
+    for number, raw in _instructions(lines):
+        match = _COMMAND_RE.match(raw)
+        if match:
+            last[match.group(1).upper()] = (number, match.group(2).strip())
+    issues: list[DockerfileIssue] = []
+    for kind, (number, args) in last.items():
+        if args.startswith("["):
+            continue
+        issues.append(
+            DockerfileIssue(
+                code="shell-form-command",
+                severity="medium",
+                title=f"{kind} uses shell form",
+                detail=(
+                    f"Line {number} uses shell form, so a shell becomes PID 1 and can swallow SIGTERM."
+                ),
+                suggestion=(
+                    "Use exec form so the process receives shutdown signals, "
+                    f'for example `{kind} ["executable", "arg"]`.'
+                ),
+                line=number,
             )
         )
     return issues

@@ -9,6 +9,37 @@ SAMPLE = (
 )
 
 
+def test_flags_shell_form_startup_commands():
+    dockerfile = """\
+FROM python:3.12-slim
+WORKDIR /app
+USER appuser
+EXPOSE 8000
+ENTRYPOINT python -m app
+CMD python -m app
+"""
+    issues = [
+        issue for issue in review_dockerfile(dockerfile) if issue.code == "shell-form-command"
+    ]
+    assert {issue.title for issue in issues} == {
+        "ENTRYPOINT uses shell form",
+        "CMD uses shell form",
+    }
+    assert all(issue.severity == "medium" for issue in issues)
+
+
+def test_exec_form_and_overridden_shell_form_are_not_flagged():
+    dockerfile = """\
+FROM python:3.12-slim
+CMD python -m app
+ENTRYPOINT ["python", "-m", "app"]
+CMD ["python", "-m", "app"]
+USER appuser
+"""
+    issues = review_dockerfile(dockerfile)
+    assert "shell-form-command" not in {issue.code for issue in issues}
+
+
 def test_flags_common_problems_in_unoptimized_sample():
     issues = review_dockerfile(SAMPLE.read_text(), ports=[8000])
     codes = {issue.code for issue in issues}
@@ -18,6 +49,7 @@ def test_flags_common_problems_in_unoptimized_sample():
     assert "copies-secrets" in codes
     assert "explicit-root-user" in codes
     assert "copy-context-too-early" in codes
+    assert "shell-form-command" in codes
 
 
 def test_flags_full_official_base_when_a_smaller_variant_exists():
