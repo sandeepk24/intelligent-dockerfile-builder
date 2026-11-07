@@ -93,6 +93,40 @@ CMD ["curl", "--version"]
     assert "apt-recommends" not in codes
 
 
+def test_flags_chown_after_copy():
+    dockerfile = """\
+FROM python:3.12-slim
+COPY app ./app
+RUN chown -R appuser:appuser /app
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    issues = [issue for issue in review_dockerfile(dockerfile) if issue.code == "separate-chown"]
+    assert len(issues) == 1
+    assert issues[0].line == 3
+    assert issues[0].severity == "medium"
+    assert "--chown" in issues[0].suggestion
+
+
+def test_copy_chown_and_chown_before_copy_are_not_flagged():
+    owned_copy = """\
+FROM python:3.12-slim
+COPY --chown=appuser:appuser app ./app
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    chown_before_copy = """\
+FROM python:3.12-slim
+RUN useradd --create-home appuser && chown appuser /home/appuser
+COPY --chown=appuser:appuser app ./app
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    for dockerfile in (owned_copy, chown_before_copy):
+        issues = review_dockerfile(dockerfile)
+        assert "separate-chown" not in {issue.code for issue in issues}
+
+
 def test_flags_secret_build_args_without_duplicating_hardcoded_secret():
     dockerfile = """\
 FROM python:3.12-slim

@@ -52,6 +52,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_build_dependencies(lines))
     issues.extend(_check_user(lines))
     issues.extend(_check_add_and_copy(lines))
+    issues.extend(_check_separate_chown(lines))
     issues.extend(_check_package_installs(lines))
     issues.extend(_check_split_apt(lines))
     issues.extend(_check_apt_recommends(lines))
@@ -360,6 +361,43 @@ def _check_add_and_copy(lines: list[str]) -> list[DockerfileIssue]:
                     detail=f"Line {first_line} copies the entire context first, which breaks dependency layer caching.",
                     suggestion="Copy only the lockfile/manifest, install dependencies, then copy application source.",
                     line=first_line,
+                )
+            )
+    return issues
+
+
+def _check_separate_chown(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag a RUN chown that follows a copy in the same stage.
+
+    chown after COPY writes a second copy of those files into a new layer.
+    COPY --chown sets ownership while the files are added.
+    """
+    issues: list[DockerfileIssue] = []
+    for stage in _stages(lines):
+        seen_copy = False
+        for number, raw in stage:
+            upper = raw.upper()
+            if upper.startswith("COPY ") or upper.startswith("ADD "):
+                seen_copy = True
+                continue
+            if not seen_copy or not upper.startswith("RUN "):
+                continue
+            if re.search(r"\bchown\b", raw, re.IGNORECASE) is None:
+                continue
+            issues.append(
+                DockerfileIssue(
+                    code="separate-chown",
+                    severity="medium",
+                    title="chown after COPY duplicates file layers",
+                    detail=(
+                        f"Line {number} changes ownership after files were copied. "
+                        "That stores a second copy of those files in a new layer."
+                    ),
+                    suggestion=(
+                        "Set ownership while copying, for example "
+                        "`COPY --chown=appuser:appuser app ./app`."
+                    ),
+                    line=number,
                 )
             )
     return issues
