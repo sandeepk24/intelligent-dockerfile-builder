@@ -55,6 +55,29 @@ def test_explicit_healthcheck_is_not_flagged():
         assert "missing-healthcheck" not in {issue.code for issue in issues}
 
 
+def test_flags_apt_update_and_install_split_across_runs():
+    dockerfile = """\
+FROM debian:bookworm-slim
+RUN apt-get update
+RUN apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+CMD ["curl", "--version"]
+"""
+    issues = [issue for issue in review_dockerfile(dockerfile) if issue.code == "split-apt-command"]
+    assert [issue.line for issue in issues] == [2, 3]
+    assert all(issue.severity == "medium" for issue in issues)
+
+
+def test_apt_update_and_install_in_one_run_is_not_flagged():
+    dockerfile = """\
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends curl \\
+    && rm -rf /var/lib/apt/lists/*
+CMD ["curl", "--version"]
+"""
+    issues = review_dockerfile(dockerfile)
+    assert "split-apt-command" not in {issue.code for issue in issues}
+
+
 def test_flags_adjacent_run_instructions():
     dockerfile = """\
 FROM python:3.12-slim

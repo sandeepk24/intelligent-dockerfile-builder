@@ -53,6 +53,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_user(lines))
     issues.extend(_check_add_and_copy(lines))
     issues.extend(_check_package_installs(lines))
+    issues.extend(_check_split_apt(lines))
     issues.extend(_check_consecutive_runs(lines))
     issues.extend(_check_secrets(lines))
     issues.extend(_check_workdir_and_command(lines))
@@ -417,6 +418,45 @@ def _check_package_installs(lines: list[str]) -> list[DockerfileIssue]:
                     line=number,
                 )
             )
+    return issues
+
+
+_APT_UPDATE_RE = re.compile(r"\bapt(?:-get)?\s+update\b", re.IGNORECASE)
+_APT_INSTALL_RE = re.compile(r"\bapt(?:-get)?\s+install\b", re.IGNORECASE)
+
+
+def _check_split_apt(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag apt update and install when they are not in the same RUN.
+
+    A separate update layer goes stale, and a later install can fail or
+    reuse an old package index. One RUN keeps the index and the install together.
+    """
+    issues: list[DockerfileIssue] = []
+    for number, raw in _instructions(lines):
+        if not raw.upper().startswith("RUN "):
+            continue
+        has_update = _APT_UPDATE_RE.search(raw) is not None
+        has_install = _APT_INSTALL_RE.search(raw) is not None
+        if has_update == has_install:
+            continue
+        if has_update:
+            detail = f"Line {number} runs apt-get update without installing packages in that RUN."
+            suggestion = "Chain `apt-get update` and `apt-get install` in one RUN, then delete the package lists."
+        else:
+            detail = (
+                f"Line {number} installs apt packages without `apt-get update` in the same RUN."
+            )
+            suggestion = "Run `apt-get update && apt-get install` in the same RUN so the index cannot go stale."
+        issues.append(
+            DockerfileIssue(
+                code="split-apt-command",
+                severity="medium",
+                title="apt update and install are not in the same RUN",
+                detail=detail,
+                suggestion=suggestion,
+                line=number,
+            )
+        )
     return issues
 
 
