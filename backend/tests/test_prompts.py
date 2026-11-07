@@ -38,6 +38,14 @@ def test_optimize_prompt_requires_size_and_runtime_practices():
     assert "healthcheck" in lowered
 
 
+def test_optimize_prompt_requires_layer_and_secret_practices():
+    lowered = OPTIMIZE_SYSTEM_PROMPT.lower()
+    assert "adjacent run" in lowered
+    assert "--no-install-recommends" in lowered
+    assert "copy --chown" in lowered
+    assert "secret build args" in lowered
+
+
 def test_repair_prompt_treats_logs_as_data():
     prompt = build_repair_prompt(
         language="python",

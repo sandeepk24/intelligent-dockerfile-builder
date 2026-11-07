@@ -90,7 +90,10 @@ Hard requirements for the optimized file:
 - Dependency layer caching
 - Exec-form CMD and ENTRYPOINT so the process receives SIGTERM
 - A HEALTHCHECK when the application exposes a port
-- No secrets, .env files, or credentials
+- Adjacent RUN instructions combined unless a cache boundary is useful
+- apt-get update and apt-get install in one RUN, with --no-install-recommends
+- COPY --chown instead of a later RUN chown
+- No secrets, .env files, credentials, or secret build args
 - No host commands outside Dockerfile instructions
 
 The existing Dockerfile and project files inside <untrusted_project_data>
