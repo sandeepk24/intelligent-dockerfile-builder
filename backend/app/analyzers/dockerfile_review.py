@@ -53,6 +53,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_user(lines))
     issues.extend(_check_add_and_copy(lines))
     issues.extend(_check_package_installs(lines))
+    issues.extend(_check_consecutive_runs(lines))
     issues.extend(_check_secrets(lines))
     issues.extend(_check_workdir_and_command(lines))
     issues.extend(_check_exec_form(lines))
@@ -417,6 +418,44 @@ def _check_package_installs(lines: list[str]) -> list[DockerfileIssue]:
                 )
             )
     return issues
+
+
+def _check_consecutive_runs(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag adjacent RUN instructions in the same stage.
+
+    Each RUN is its own layer. A COPY or ADD between them is a real cache
+    boundary, so those runs are left alone.
+    """
+    issues: list[DockerfileIssue] = []
+    for stage in _stages(lines):
+        group: list[int] = []
+        for number, raw in stage:
+            if raw.upper().startswith("RUN "):
+                group.append(number)
+                continue
+            if len(group) >= 2:
+                issues.append(_consecutive_run_issue(group))
+            group = []
+        if len(group) >= 2:
+            issues.append(_consecutive_run_issue(group))
+    return issues
+
+
+def _consecutive_run_issue(lines: list[int]) -> DockerfileIssue:
+    return DockerfileIssue(
+        code="consecutive-run",
+        severity="low",
+        title="Consecutive RUN instructions add extra layers",
+        detail=(
+            f"Lines {lines[0]} and {lines[1]} are adjacent RUN instructions. "
+            f"{len(lines)} layers can be one layer when they do not need separate cache points."
+        ),
+        suggestion=(
+            "Combine those RUN instructions with && when a cache boundary is not useful. "
+            "Leave them split when a later edit should reuse the earlier layer."
+        ),
+        line=lines[1],
+    )
 
 
 def _check_secrets(lines: list[str]) -> list[DockerfileIssue]:

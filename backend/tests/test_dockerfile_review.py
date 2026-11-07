@@ -55,6 +55,36 @@ def test_explicit_healthcheck_is_not_flagged():
         assert "missing-healthcheck" not in {issue.code for issue in issues}
 
 
+def test_flags_adjacent_run_instructions():
+    dockerfile = """\
+FROM python:3.12-slim
+RUN apt-get update
+RUN apt-get install -y curl
+COPY app ./app
+RUN pip install --no-cache-dir -r requirements.txt
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    issues = [issue for issue in review_dockerfile(dockerfile) if issue.code == "consecutive-run"]
+    assert len(issues) == 1
+    assert issues[0].line == 3
+    assert issues[0].severity == "low"
+
+
+def test_run_split_by_copy_is_not_flagged():
+    dockerfile = """\
+FROM python:3.12-slim
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app ./app
+RUN useradd --create-home appuser
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    issues = review_dockerfile(dockerfile)
+    assert "consecutive-run" not in {issue.code for issue in issues}
+
+
 def test_flags_common_problems_in_unoptimized_sample():
     issues = review_dockerfile(SAMPLE.read_text(), ports=[8000])
     codes = {issue.code for issue in issues}
