@@ -54,6 +54,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_add_and_copy(lines))
     issues.extend(_check_package_installs(lines))
     issues.extend(_check_split_apt(lines))
+    issues.extend(_check_apt_recommends(lines))
     issues.extend(_check_consecutive_runs(lines))
     issues.extend(_check_secrets(lines))
     issues.extend(_check_workdir_and_command(lines))
@@ -454,6 +455,32 @@ def _check_split_apt(lines: list[str]) -> list[DockerfileIssue]:
                 title="apt update and install are not in the same RUN",
                 detail=detail,
                 suggestion=suggestion,
+                line=number,
+            )
+        )
+    return issues
+
+
+def _check_apt_recommends(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag apt installs that pull recommended packages."""
+    issues: list[DockerfileIssue] = []
+    for number, raw in _instructions(lines):
+        if not raw.upper().startswith("RUN "):
+            continue
+        if _APT_INSTALL_RE.search(raw) is None or "--no-install-recommends" in raw.lower():
+            continue
+        issues.append(
+            DockerfileIssue(
+                code="apt-recommends",
+                severity="low",
+                title="apt install includes recommended packages",
+                detail=(
+                    f"Line {number} does not pass `--no-install-recommends`, "
+                    "so apt may install extra packages the process never uses."
+                ),
+                suggestion=(
+                    "Add `--no-install-recommends` unless one of those recommended packages is required."
+                ),
                 line=number,
             )
         )

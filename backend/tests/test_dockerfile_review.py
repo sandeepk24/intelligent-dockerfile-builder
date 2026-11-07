@@ -67,6 +67,19 @@ CMD ["curl", "--version"]
     assert all(issue.severity == "medium" for issue in issues)
 
 
+def test_flags_apt_install_without_no_install_recommends():
+    dockerfile = """\
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y curl \\
+    && rm -rf /var/lib/apt/lists/*
+CMD ["curl", "--version"]
+"""
+    issues = [issue for issue in review_dockerfile(dockerfile) if issue.code == "apt-recommends"]
+    assert len(issues) == 1
+    assert issues[0].severity == "low"
+    assert "--no-install-recommends" in issues[0].suggestion
+
+
 def test_apt_update_and_install_in_one_run_is_not_flagged():
     dockerfile = """\
 FROM debian:bookworm-slim
@@ -75,7 +88,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \\
 CMD ["curl", "--version"]
 """
     issues = review_dockerfile(dockerfile)
-    assert "split-apt-command" not in {issue.code for issue in issues}
+    codes = {issue.code for issue in issues}
+    assert "split-apt-command" not in codes
+    assert "apt-recommends" not in codes
 
 
 def test_flags_adjacent_run_instructions():
