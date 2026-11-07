@@ -93,6 +93,34 @@ CMD ["curl", "--version"]
     assert "apt-recommends" not in codes
 
 
+def test_flags_secret_build_args_without_duplicating_hardcoded_secret():
+    dockerfile = """\
+FROM python:3.12-slim
+ARG API_TOKEN
+ARG APP_SECRET=supersecret
+ENV APP_VERSION=1.2.3
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    issues = review_dockerfile(dockerfile)
+    secret_args = [issue for issue in issues if issue.code == "secret-build-arg"]
+    assert [issue.line for issue in secret_args] == [2, 3]
+    assert all(issue.severity == "high" for issue in secret_args)
+    assert "hardcoded-secret" not in {issue.code for issue in issues}
+
+
+def test_runtime_env_secret_is_still_a_hardcoded_secret():
+    dockerfile = """\
+FROM python:3.12-slim
+ENV API_KEY=abc123
+USER appuser
+CMD ["python", "-m", "app"]
+"""
+    issues = review_dockerfile(dockerfile)
+    assert "hardcoded-secret" in {issue.code for issue in issues}
+    assert "secret-build-arg" not in {issue.code for issue in issues}
+
+
 def test_flags_adjacent_run_instructions():
     dockerfile = """\
 FROM python:3.12-slim

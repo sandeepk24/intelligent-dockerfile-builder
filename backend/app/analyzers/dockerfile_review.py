@@ -57,6 +57,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_apt_recommends(lines))
     issues.extend(_check_consecutive_runs(lines))
     issues.extend(_check_secrets(lines))
+    issues.extend(_check_secret_build_args(lines))
     issues.extend(_check_workdir_and_command(lines))
     issues.extend(_check_exec_form(lines))
     issues.extend(_check_expose(lines, ports or []))
@@ -539,6 +540,8 @@ def _check_secrets(lines: list[str]) -> list[DockerfileIssue]:
                     line=number,
                 )
             )
+        if raw.upper().startswith("ARG "):
+            continue
         if re.search(r"(API_KEY|SECRET|PASSWORD|TOKEN)\s*=\s*\S+", raw, re.IGNORECASE):
             issues.append(
                 DockerfileIssue(
@@ -550,6 +553,47 @@ def _check_secrets(lines: list[str]) -> list[DockerfileIssue]:
                     line=number,
                 )
             )
+    return issues
+
+
+_SECRET_ARG_RE = re.compile(
+    r"^ARG\s+([A-Za-z_][A-Za-z0-9_]*)",
+    re.IGNORECASE,
+)
+_SECRET_ARG_NAME_RE = re.compile(
+    r"API_KEY|SECRET|PASSWORD|PASSWD|TOKEN|CREDENTIAL|PRIVATE_KEY|ACCESS_KEY",
+    re.IGNORECASE,
+)
+
+
+def _check_secret_build_args(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag ARG names that look like credentials.
+
+    Build args are stored in image history, including values passed with
+    --build-arg, so they remain recoverable after the build.
+    """
+    issues: list[DockerfileIssue] = []
+    for number, raw in _instructions(lines):
+        match = _SECRET_ARG_RE.match(raw)
+        if match is None or _SECRET_ARG_NAME_RE.search(match.group(1)) is None:
+            continue
+        name = match.group(1)
+        issues.append(
+            DockerfileIssue(
+                code="secret-build-arg",
+                severity="high",
+                title="Secret passed through a build arg",
+                detail=(
+                    f"Line {number} declares `ARG {name}`. "
+                    "Build-arg values are kept in image history."
+                ),
+                suggestion=(
+                    "Mount the secret at build time with a BuildKit secret, "
+                    "or inject it at runtime. Do not pass it with ARG."
+                ),
+                line=number,
+            )
+        )
     return issues
 
 
