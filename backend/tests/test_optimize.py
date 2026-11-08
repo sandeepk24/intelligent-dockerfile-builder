@@ -21,6 +21,7 @@ async def test_analyze_unoptimized_project_returns_issues(client):
     codes = {issue["code"] for issue in data["dockerfile_issues"]}
     assert "latest-tag" in codes
     assert "copies-secrets" in codes
+    assert "missing-dockerignore" in codes
     assert data["existing_dockerfile"].startswith("FROM python:latest")
 
 

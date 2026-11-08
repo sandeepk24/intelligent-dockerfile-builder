@@ -31,7 +31,12 @@ class DockerfileIssue:
         return asdict(self)
 
 
-def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[DockerfileIssue]:
+def review_dockerfile(
+    content: str,
+    *,
+    ports: list[int] | None = None,
+    has_dockerignore: bool | None = None,
+) -> list[DockerfileIssue]:
     """Return ordered issues found in Dockerfile text."""
     if not content or not content.strip():
         return [
@@ -64,6 +69,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_expose(lines, ports or []))
     issues.extend(_check_healthcheck(lines, ports or []))
     issues.extend(_check_labels(lines))
+    issues.extend(_check_dockerignore(has_dockerignore))
     issues.extend(_check_privileged_patterns(lines))
     return issues
 
@@ -751,6 +757,41 @@ def _check_healthcheck(lines: list[str], ports: list[int]) -> list[DockerfileIss
                 "Orchestrators cannot tell a running process from an application that is ready to serve."
             ),
             suggestion=suggestion,
+        )
+    ]
+
+
+def dockerignore_presence(file_tree: list[str]) -> bool | None:
+    """Return whether a scanned project has a .dockerignore.
+
+    None means the tree is only a pasted Dockerfile, so the file cannot be judged.
+    """
+    project_files = [
+        path
+        for path in file_tree
+        if path not in {"Dockerfile", "dockerfile"} and not path.endswith("/Dockerfile")
+    ]
+    if not project_files:
+        return None
+    return any(path == ".dockerignore" or path.endswith("/.dockerignore") for path in file_tree)
+
+
+def _check_dockerignore(has_dockerignore: bool | None) -> list[DockerfileIssue]:
+    if has_dockerignore is not False:
+        return []
+    return [
+        DockerfileIssue(
+            code="missing-dockerignore",
+            severity="low",
+            title="No .dockerignore file",
+            detail=(
+                "The project has no .dockerignore, so the build context can include "
+                "VCS metadata, local environments, and secrets."
+            ),
+            suggestion=(
+                "Add a .dockerignore that excludes .git, .env, virtual environments, "
+                "and dependency directories."
+            ),
         )
     ]
 

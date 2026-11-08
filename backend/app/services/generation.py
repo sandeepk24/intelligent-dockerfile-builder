@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from app.analyzers.dockerfile_review import issues_to_dicts, review_dockerfile
+from app.analyzers.dockerfile_review import (
+    dockerignore_presence,
+    issues_to_dicts,
+    review_dockerfile,
+)
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.store import store
@@ -100,7 +104,11 @@ async def run_optimize_job(
         original = (dockerfile or project.existing_dockerfile or "").strip()
         if not original:
             raise ValueError("No existing Dockerfile was provided to review")
-        static_issues = review_dockerfile(original, ports=project.ports)
+        static_issues = review_dockerfile(
+            original,
+            ports=project.ports,
+            has_dockerignore=dockerignore_presence(project.file_tree),
+        )
         provider = get_llm_provider()
         if not await provider.is_connected():
             raise RuntimeError(

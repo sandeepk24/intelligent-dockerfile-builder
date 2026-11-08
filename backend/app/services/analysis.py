@@ -6,7 +6,11 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.analyzers.detector import detect_project
-from app.analyzers.dockerfile_review import issues_to_dicts, review_dockerfile
+from app.analyzers.dockerfile_review import (
+    dockerignore_presence,
+    issues_to_dicts,
+    review_dockerfile,
+)
 from app.analyzers.scanner import scan_project
 from app.analyzers.zip_import import extract_zip
 from app.core.paths import resolve_workspace_path, workspace_root
@@ -96,7 +100,11 @@ def to_analysis_response(project: ProjectRecord) -> ProjectAnalysisResponse:
         dockerfile_issues=[
             DockerfileIssueResponse.model_validate(item)
             for item in issues_to_dicts(
-                review_dockerfile(project.existing_dockerfile, ports=project.ports)
+                review_dockerfile(
+                    project.existing_dockerfile,
+                    ports=project.ports,
+                    has_dockerignore=dockerignore_presence(project.file_tree),
+                )
             )
         ]
         if project.existing_dockerfile

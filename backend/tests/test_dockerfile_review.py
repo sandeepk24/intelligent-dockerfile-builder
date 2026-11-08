@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from app.analyzers.dockerfile_review import review_dockerfile
+from app.analyzers.dockerfile_review import dockerignore_presence, review_dockerfile
 
 SAMPLE = (
     Path(__file__).resolve().parents[2] / "sample-projects" / "python-unoptimized" / "Dockerfile"
@@ -45,6 +45,26 @@ def test_flags_missing_healthcheck_and_includes_detected_port():
     match = next(issue for issue in issues if issue.code == "missing-healthcheck")
     assert match.severity == "low"
     assert "127.0.0.1:8000" in match.suggestion
+
+
+def test_dockerignore_presence_ignores_a_pasted_dockerfile():
+    assert dockerignore_presence(["Dockerfile"]) is None
+    assert dockerignore_presence([]) is None
+    assert dockerignore_presence(["app/main.py"]) is False
+    assert dockerignore_presence(["app/main.py", ".dockerignore"]) is True
+    assert dockerignore_presence(["nested/.dockerignore"]) is True
+
+
+def test_flags_missing_dockerignore_only_when_the_project_has_none():
+    dockerfile = _runtime_dockerfile("python:3.12-slim")
+    missing = review_dockerfile(dockerfile, has_dockerignore=False)
+    assert any(
+        issue.code == "missing-dockerignore" and issue.severity == "low" for issue in missing
+    )
+    present = review_dockerfile(dockerfile, has_dockerignore=True)
+    unknown = review_dockerfile(dockerfile)
+    assert "missing-dockerignore" not in {issue.code for issue in present}
+    assert "missing-dockerignore" not in {issue.code for issue in unknown}
 
 
 def test_flags_missing_image_labels():
