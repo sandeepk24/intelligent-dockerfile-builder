@@ -160,6 +160,14 @@ export interface ToolStepResult {
   stderr?: string | null;
 }
 
+export interface SizeComparison {
+  baseline_status: string;
+  baseline_image_size_bytes: number | null;
+  optimized_image_size_bytes: number | null;
+  delta_bytes: number | null;
+  delta_percent: number | null;
+}
+
 export interface ValidationResult {
   id: string;
   dockerfile_id: string;
@@ -169,6 +177,7 @@ export interface ValidationResult {
   build: ToolStepResult;
   image_size_bytes: number | null;
   build_duration_ms: number | null;
+  size_comparison?: SizeComparison | null;
   trivy: ToolStepResult | null;
   startup: ToolStepResult | null;
   error_log: string | null;

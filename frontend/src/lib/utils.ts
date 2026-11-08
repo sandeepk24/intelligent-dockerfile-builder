@@ -20,6 +20,17 @@ export function formatBytes(bytes: number | null | undefined): string {
   return `${(bytes / Math.pow(1024, index)).toFixed(1)} ${units[index]}`;
 }
 
+export function formatSignedBytes(bytes: number | null | undefined): string {
+  if (bytes == null || Number.isNaN(bytes)) {
+    return "—";
+  }
+  if (bytes === 0) {
+    return "0 B";
+  }
+  const sign = bytes > 0 ? "+" : "-";
+  return `${sign}${formatBytes(Math.abs(bytes))}`;
+}
+
 export function formatDuration(ms: number | null | undefined): string {
   if (ms == null) {
     return "—";

@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/Ca
 import { Button } from "@/components/common/Button";
 import { Badge } from "@/components/common/Badge";
 import { Spinner } from "@/components/common/Spinner";
-import { formatBytes, formatDuration } from "@/lib/utils";
-import type { RepairListResponse, ValidationResult } from "@/types/api";
+import { formatBytes, formatDuration, formatSignedBytes } from "@/lib/utils";
+import type { RepairListResponse, SizeComparison, ValidationResult } from "@/types/api";
 
 export function ValidationPanel({
   latest,
@@ -110,6 +110,9 @@ export function ValidationPanel({
             <ResultRow label="Hadolint" value={latest.lint.status} />
             <ResultRow label="Build" value={latest.build.status} />
             <ResultRow label="Image size" value={formatBytes(latest.image_size_bytes)} />
+            {latest.size_comparison && (
+              <ResultRow label="Size change" value={formatSizeChange(latest.size_comparison)} />
+            )}
             <ResultRow label="Build time" value={formatDuration(latest.build_duration_ms)} />
             {latest.trivy && <ResultRow label="Trivy" value={latest.trivy.status} />}
             {latest.startup && <ResultRow label="Startup" value={latest.startup.status} />}
@@ -182,6 +185,21 @@ function StatusBadge({ status }: { status: string }) {
         ? "destructive"
         : "warning";
   return <Badge variant={variant}>{status}</Badge>;
+}
+
+function formatSizeChange(comparison: SizeComparison): string {
+  if (comparison.baseline_status !== "passed" || comparison.delta_bytes == null) {
+    return "Original build did not produce a size";
+  }
+  const amount = formatSignedBytes(comparison.delta_bytes);
+  if (comparison.delta_percent == null) {
+    return amount;
+  }
+  const percent =
+    comparison.delta_percent > 0
+      ? `+${comparison.delta_percent}`
+      : String(comparison.delta_percent);
+  return `${amount} (${percent}%)`;
 }
 
 function ResultRow({ label, value }: { label: string; value: string }) {
