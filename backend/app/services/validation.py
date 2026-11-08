@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db.store import store
 from app.evaluators.metrics import record_validation_event
+from app.evaluators.size_delta import size_comparison
 from app.models.records import JobRecord, ValidationRecord
 from app.schemas.validation import ValidationResponse
 from app.validators.docker_build import build_image, docker_available, remove_image
@@ -91,6 +92,14 @@ async def run_validation_job(
             if build.get("status") == "failed":
                 error_log = build.get("log")
             if build.get("status") == "passed" and image_tag:
+                original = _original_to_compare(dockerfile)
+                if original and context is not None:
+                    build["size_comparison"] = await _measure_original_image(
+                        context,
+                        original,
+                        optimized_bytes=image_size if isinstance(image_size, int) else None,
+                        optimized_tag=image_tag,
+                    )
                 if run_trivy:
                     trivy_result = await scan_image(image_tag)
                 if run_startup_check:
@@ -127,6 +136,47 @@ async def run_validation_job(
             cleanup_context(context)
 
 
+def _original_to_compare(dockerfile) -> str | None:
+    original = dockerfile.original_dockerfile or ""
+    if not original.strip() or original.strip() == dockerfile.dockerfile.strip():
+        return None
+    return original
+
+
+async def _measure_original_image(
+    context,
+    original: str,
+    *,
+    optimized_bytes: int | None,
+    optimized_tag: str,
+) -> dict:
+    """Build the original Dockerfile in the same approved sandbox.
+
+    A failure here does not fail validation of the optimized image. The
+    original text is always restored, and the extra image is removed.
+    """
+    baseline_tag = f"{optimized_tag}-base"
+    dockerfile_path = context / "Dockerfile"
+    current = dockerfile_path.read_text()
+    baseline_status = "failed"
+    baseline_bytes = None
+    try:
+        dockerfile_path.write_text(original)
+        baseline = await build_image(context, baseline_tag)
+        baseline_status = str(baseline.get("status") or "failed")
+        baseline_bytes = baseline.get("image_size_bytes")
+    except Exception as exc:
+        logger.warning("Original image size comparison failed: %s", exc)
+    finally:
+        dockerfile_path.write_text(current)
+        await remove_image(baseline_tag)
+    return size_comparison(
+        optimized_bytes=optimized_bytes,
+        baseline_bytes=baseline_bytes if isinstance(baseline_bytes, int) else None,
+        baseline_status=baseline_status,
+    )
+
+
 def get_validation(validation_id: str) -> ValidationRecord | None:
     return store.get_validation(validation_id)
 
@@ -145,6 +195,9 @@ def to_validation_response(record: ValidationRecord) -> ValidationResponse:
         build=record.build,
         image_size_bytes=record.image_size_bytes,
         build_duration_ms=record.build_duration_ms,
+        size_comparison=record.build.get("size_comparison")
+        if isinstance(record.build, dict)
+        else None,
         trivy=record.trivy,
         startup=record.startup,
         error_log=record.error_log,

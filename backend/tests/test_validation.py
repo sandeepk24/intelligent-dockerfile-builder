@@ -201,11 +201,121 @@ async def test_passed_build_reports_size_and_session_stats(client, monkeypatch):
     assert body["status"] == "passed"
     assert body["image_size_bytes"] == 45_000_000
     assert body["build_duration_ms"] == 2500
+    assert body["size_comparison"] is None
 
     stats = await client.get("/api/v1/stats")
     assert stats.json()["successful_builds"] == 1
     assert stats.json()["avg_build_time_ms"] == 2500
     assert stats.json()["dockerfiles_generated"] == 1
+
+
+@pytest.mark.asyncio
+async def test_optimized_build_reports_size_delta_against_original(client, monkeypatch):
+    monkeypatch.setattr("app.services.generation.get_llm_provider", lambda: FakeLLMProvider())
+    analyzed = await client.post(
+        "/api/v1/projects/analyze",
+        json={"source_type": "directory", "path": "python-unoptimized"},
+    )
+    started = await client.post(
+        "/api/v1/dockerfiles/optimize",
+        json={"project_id": analyzed.json()["project_id"], "model": "codellama:7b"},
+    )
+    job = await client.get(f"/api/v1/jobs/{started.json()['job_id']}")
+    dockerfile_id = job.json()["dockerfile_id"]
+
+    async def fake_hadolint(_path):
+        return {"status": "passed", "findings": [], "reason": None}
+
+    async def fake_build(context, image_tag):
+        text = (context / "Dockerfile").read_text()
+        return {
+            "status": "passed",
+            "reason": None,
+            "image_tag": image_tag,
+            "log": "built",
+            "duration_ms": 20,
+            "image_size_bytes": 900_000_000 if "python:latest" in text else 180_000_000,
+        }
+
+    async def fake_remove(_tag):
+        return None
+
+    monkeypatch.setattr("app.services.validation.run_hadolint", fake_hadolint)
+    monkeypatch.setattr("app.services.validation.build_image", fake_build)
+    monkeypatch.setattr("app.services.validation.remove_image", fake_remove)
+
+    validated = await client.post(
+        f"/api/v1/dockerfiles/{dockerfile_id}/validate",
+        json={"approve_build": True, "confirm_untrusted_execution": True},
+    )
+    validation_id = (await client.get(f"/api/v1/jobs/{validated.json()['job_id']}")).json()[
+        "validation_id"
+    ]
+    body = (await client.get(f"/api/v1/validations/{validation_id}")).json()
+    comparison = body["size_comparison"]
+    assert body["status"] == "passed"
+    assert body["image_size_bytes"] == 180_000_000
+    assert comparison["baseline_status"] == "passed"
+    assert comparison["baseline_image_size_bytes"] == 900_000_000
+    assert comparison["delta_bytes"] == -720_000_000
+    assert comparison["delta_percent"] == -80.0
+
+
+@pytest.mark.asyncio
+async def test_failed_original_build_does_not_fail_optimized_validation(client, monkeypatch):
+    monkeypatch.setattr("app.services.generation.get_llm_provider", lambda: FakeLLMProvider())
+    analyzed = await client.post(
+        "/api/v1/projects/analyze",
+        json={"source_type": "directory", "path": "python-unoptimized"},
+    )
+    started = await client.post(
+        "/api/v1/dockerfiles/optimize",
+        json={"project_id": analyzed.json()["project_id"], "model": "codellama:7b"},
+    )
+    dockerfile_id = (await client.get(f"/api/v1/jobs/{started.json()['job_id']}")).json()[
+        "dockerfile_id"
+    ]
+
+    async def fake_hadolint(_path):
+        return {"status": "passed", "findings": [], "reason": None}
+
+    async def fake_build(context, image_tag):
+        text = (context / "Dockerfile").read_text()
+        if "python:latest" in text:
+            return {
+                "status": "failed",
+                "reason": "original build failed",
+                "image_tag": None,
+                "log": "failed",
+                "duration_ms": 5,
+            }
+        return {
+            "status": "passed",
+            "reason": None,
+            "image_tag": image_tag,
+            "log": "built",
+            "duration_ms": 20,
+            "image_size_bytes": 180_000_000,
+        }
+
+    async def fake_remove(_tag):
+        return None
+
+    monkeypatch.setattr("app.services.validation.run_hadolint", fake_hadolint)
+    monkeypatch.setattr("app.services.validation.build_image", fake_build)
+    monkeypatch.setattr("app.services.validation.remove_image", fake_remove)
+
+    validated = await client.post(
+        f"/api/v1/dockerfiles/{dockerfile_id}/validate",
+        json={"approve_build": True, "confirm_untrusted_execution": True},
+    )
+    validation_id = (await client.get(f"/api/v1/jobs/{validated.json()['job_id']}")).json()[
+        "validation_id"
+    ]
+    body = (await client.get(f"/api/v1/validations/{validation_id}")).json()
+    assert body["status"] == "passed"
+    assert body["size_comparison"]["baseline_status"] == "failed"
+    assert body["size_comparison"]["delta_bytes"] is None
 
 
 @pytest.mark.asyncio

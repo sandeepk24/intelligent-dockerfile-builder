@@ -46,6 +46,7 @@ class ValidationResponse(BaseModel):
     build: dict
     image_size_bytes: int | None = None
     build_duration_ms: int | None = None
+    size_comparison: dict | None = None
     trivy: dict | None = None
     startup: dict | None = None
     error_log: str | None = None
