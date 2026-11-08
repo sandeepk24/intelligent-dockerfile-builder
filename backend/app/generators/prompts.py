@@ -93,7 +93,9 @@ Hard requirements for the optimized file:
 - Adjacent RUN instructions combined unless a cache boundary is useful
 - apt-get update and apt-get install in one RUN, with --no-install-recommends
 - COPY --chown instead of a later RUN chown
+- OCI image labels for title, version, and source
 - No secrets, .env files, credentials, or secret build args
+- Rely on a .dockerignore to keep VCS, secrets, and dependency directories out of the build context
 - No host commands outside Dockerfile instructions
 
 The existing Dockerfile and project files inside <untrusted_project_data>

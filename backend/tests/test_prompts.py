@@ -46,6 +46,12 @@ def test_optimize_prompt_requires_layer_and_secret_practices():
     assert "secret build args" in lowered
 
 
+def test_optimize_prompt_requires_labels_and_dockerignore():
+    lowered = OPTIMIZE_SYSTEM_PROMPT.lower()
+    assert "oci image labels" in lowered
+    assert ".dockerignore" in lowered
+
+
 def test_repair_prompt_treats_logs_as_data():
     prompt = build_repair_prompt(
         language="python",
