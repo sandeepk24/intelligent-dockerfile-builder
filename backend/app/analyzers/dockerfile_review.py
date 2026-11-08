@@ -63,6 +63,7 @@ def review_dockerfile(content: str, *, ports: list[int] | None = None) -> list[D
     issues.extend(_check_exec_form(lines))
     issues.extend(_check_expose(lines, ports or []))
     issues.extend(_check_healthcheck(lines, ports or []))
+    issues.extend(_check_labels(lines))
     issues.extend(_check_privileged_patterns(lines))
     return issues
 
@@ -750,6 +751,28 @@ def _check_healthcheck(lines: list[str], ports: list[int]) -> list[DockerfileIss
                 "Orchestrators cannot tell a running process from an application that is ready to serve."
             ),
             suggestion=suggestion,
+        )
+    ]
+
+
+def _check_labels(lines: list[str]) -> list[DockerfileIssue]:
+    """Flag an image that carries no LABEL metadata."""
+    for _number, raw in _instructions(lines):
+        if raw.upper().startswith("LABEL "):
+            return []
+    return [
+        DockerfileIssue(
+            code="missing-label",
+            severity="low",
+            title="No image metadata labels",
+            detail=(
+                "The image has no LABEL instructions, so registries and scanners "
+                "cannot identify its name, version, or source."
+            ),
+            suggestion=(
+                "Add OCI labels such as org.opencontainers.image.title, "
+                "org.opencontainers.image.version, and org.opencontainers.image.source."
+            ),
         )
     ]
 

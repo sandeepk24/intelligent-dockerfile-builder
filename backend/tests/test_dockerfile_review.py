@@ -47,6 +47,21 @@ def test_flags_missing_healthcheck_and_includes_detected_port():
     assert "127.0.0.1:8000" in match.suggestion
 
 
+def test_flags_missing_image_labels():
+    issues = review_dockerfile(_runtime_dockerfile("python:3.12-slim"), ports=[8000])
+    match = next(issue for issue in issues if issue.code == "missing-label")
+    assert match.severity == "low"
+    assert "org.opencontainers.image.title" in match.suggestion
+
+
+def test_any_label_satisfies_the_metadata_check():
+    dockerfile = (
+        _runtime_dockerfile("python:3.12-slim") + 'LABEL org.opencontainers.image.title="api"\n'
+    )
+    issues = review_dockerfile(dockerfile, ports=[8000])
+    assert "missing-label" not in {issue.code for issue in issues}
+
+
 def test_explicit_healthcheck_is_not_flagged():
     present = _runtime_dockerfile("python:3.12-slim") + "HEALTHCHECK CMD python -c 'print(1)'\n"
     disabled = _runtime_dockerfile("python:3.12-slim") + "HEALTHCHECK NONE\n"
@@ -196,6 +211,7 @@ def test_flags_common_problems_in_unoptimized_sample():
     assert "copy-context-too-early" in codes
     assert "shell-form-command" in codes
     assert "missing-healthcheck" in codes
+    assert "missing-label" in codes
 
 
 def test_flags_full_official_base_when_a_smaller_variant_exists():
