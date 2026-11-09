@@ -81,7 +81,7 @@ async def build_image(context: Path, image_tag: str) -> dict:
 async def inspect_image_size(image_tag: str) -> int | None:
     result = await run_command(
         ["docker", "image", "inspect", "--format", "{{.Size}}", image_tag],
-        timeout=15,
+        timeout=settings.docker_inspect_timeout,
     )
     if result.returncode != 0:
         return None
@@ -94,4 +94,7 @@ async def inspect_image_size(image_tag: str) -> int | None:
 async def remove_image(image_tag: str) -> None:
     if not docker_available():
         return
-    await run_command(["docker", "image", "rm", "-f", image_tag], timeout=30)
+    await run_command(
+        ["docker", "image", "rm", "-f", image_tag],
+        timeout=settings.docker_remove_timeout,
+    )

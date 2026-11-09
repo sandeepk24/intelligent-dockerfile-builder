@@ -22,7 +22,7 @@ class OllamaClient(LLMProvider):
     async def is_connected(self) -> bool:
         """Check if Ollama server is reachable."""
         try:
-            async with httpx.AsyncClient(timeout=5) as client:
+            async with httpx.AsyncClient(timeout=settings.ollama_health_timeout) as client:
                 resp = await client.get(f"{self.base_url}/api/version")
                 return resp.status_code == 200
         except (httpx.ConnectError, httpx.TimeoutException):
@@ -32,7 +32,7 @@ class OllamaClient(LLMProvider):
     async def list_models(self) -> list[dict[str, Any]]:
         """List locally available models."""
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            async with httpx.AsyncClient(timeout=settings.ollama_list_timeout) as client:
                 resp = await client.get(f"{self.base_url}/api/tags")
                 resp.raise_for_status()
                 data = resp.json()
@@ -51,7 +51,7 @@ class OllamaClient(LLMProvider):
         if system:
             payload["system"] = system
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=settings.ollama_timeout) as client:
             resp = await client.post(f"{self.base_url}/api/generate", json=payload)
             resp.raise_for_status()
             data = resp.json()
@@ -71,7 +71,7 @@ class OllamaClient(LLMProvider):
         if system:
             payload["system"] = system
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=settings.ollama_timeout) as client:
             resp = await client.post(f"{self.base_url}/api/generate", json=payload)
             resp.raise_for_status()
             data = resp.json()

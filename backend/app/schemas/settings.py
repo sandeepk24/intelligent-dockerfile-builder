@@ -7,8 +7,16 @@ class SettingsResponse(BaseModel):
     ollama_base_url: str
     ollama_default_model: str
     ollama_timeout: int
+    ollama_health_timeout: int
+    ollama_list_timeout: int
     workspace_root: str
     docker_build_timeout: int
+    docker_run_timeout: int
+    docker_inspect_timeout: int
+    docker_logs_timeout: int
+    docker_remove_timeout: int
+    hadolint_timeout: int
+    trivy_timeout: int
     docker_build_cpu_limit: int
     docker_build_memory_limit: str
     max_repair_attempts: int

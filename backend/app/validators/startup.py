@@ -31,7 +31,7 @@ async def check_startup(image_tag: str, *, name: str) -> dict:
         "/tmp",
         image_tag,
     ]
-    started = await run_command(args, timeout=30)
+    started = await run_command(args, timeout=settings.docker_run_timeout)
     if started.returncode != 0:
         return {
             "status": "failed",
@@ -42,10 +42,16 @@ async def check_startup(image_tag: str, *, name: str) -> dict:
     await asyncio.sleep(settings.startup_check_seconds)
     inspect = await run_command(
         ["docker", "inspect", "--format", "{{.State.Running}} {{.State.Status}}", name],
-        timeout=10,
+        timeout=settings.docker_inspect_timeout,
     )
-    logs = await run_command(["docker", "logs", "--tail", "80", name], timeout=10)
-    await run_command(["docker", "rm", "-f", name], timeout=15)
+    logs = await run_command(
+        ["docker", "logs", "--tail", "80", name],
+        timeout=settings.docker_logs_timeout,
+    )
+    await run_command(
+        ["docker", "rm", "-f", name],
+        timeout=settings.docker_remove_timeout,
+    )
 
     running = inspect.stdout.strip().startswith("true")
     log = sanitize_log("\n".join(part for part in (logs.stdout, logs.stderr) if part))

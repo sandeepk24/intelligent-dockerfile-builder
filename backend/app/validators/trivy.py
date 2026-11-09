@@ -40,7 +40,7 @@ async def scan_image(image_tag: str) -> dict:
             "--no-progress",
             image_tag,
         ],
-        timeout=180,
+        timeout=settings.trivy_timeout,
     )
     findings = _parse_findings(result.stdout)
     status = "failed" if findings else "passed"

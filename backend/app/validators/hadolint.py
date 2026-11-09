@@ -21,7 +21,7 @@ async def run_hadolint(dockerfile: Path) -> dict:
 
     result = await run_command(
         [binary, "-f", "json", str(dockerfile)],
-        timeout=30,
+        timeout=settings.hadolint_timeout,
         cwd=dockerfile.parent,
     )
     findings = _parse_findings(result.stdout)

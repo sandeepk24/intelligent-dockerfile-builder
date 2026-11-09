@@ -132,8 +132,16 @@ export interface AppSettings {
   ollama_base_url: string;
   ollama_default_model: string;
   ollama_timeout: number;
+  ollama_health_timeout: number;
+  ollama_list_timeout: number;
   workspace_root: string;
   docker_build_timeout: number;
+  docker_run_timeout: number;
+  docker_inspect_timeout: number;
+  docker_logs_timeout: number;
+  docker_remove_timeout: number;
+  hadolint_timeout: number;
+  trivy_timeout: number;
   docker_build_cpu_limit: number;
   docker_build_memory_limit: string;
   max_repair_attempts: number;

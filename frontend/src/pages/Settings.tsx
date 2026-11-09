@@ -105,7 +105,7 @@ export function Settings() {
                       ))}
                   </select>
                 </Field>
-                <Field label="Timeout (seconds)">
+                <Field label="Generation timeout (seconds)">
                   <input
                     type="number"
                     min={10}
@@ -114,6 +114,12 @@ export function Settings() {
                     value={timeout}
                     onChange={(event) => setTimeoutSeconds(event.target.value)}
                   />
+                </Field>
+                <Field label="Health check timeout">
+                  <span className="text-sm">{settings?.ollama_health_timeout} seconds</span>
+                </Field>
+                <Field label="Model list timeout">
+                  <span className="text-sm">{settings?.ollama_list_timeout} seconds</span>
                 </Field>
                 <Button onClick={handleSave} disabled={update.isPending}>
                   {update.isPending ? <Spinner size={16} /> : null}
@@ -145,6 +151,24 @@ export function Settings() {
             </Field>
             <Field label="Build timeout">
               <span className="text-sm">{settings?.docker_build_timeout} seconds</span>
+            </Field>
+            <Field label="Docker run timeout">
+              <span className="text-sm">{settings?.docker_run_timeout} seconds</span>
+            </Field>
+            <Field label="Docker inspect timeout">
+              <span className="text-sm">{settings?.docker_inspect_timeout} seconds</span>
+            </Field>
+            <Field label="Docker logs timeout">
+              <span className="text-sm">{settings?.docker_logs_timeout} seconds</span>
+            </Field>
+            <Field label="Docker remove timeout">
+              <span className="text-sm">{settings?.docker_remove_timeout} seconds</span>
+            </Field>
+            <Field label="Hadolint timeout">
+              <span className="text-sm">{settings?.hadolint_timeout} seconds</span>
+            </Field>
+            <Field label="Trivy timeout">
+              <span className="text-sm">{settings?.trivy_timeout} seconds</span>
             </Field>
             <Field label="CPU limit">
               <span className="text-sm">{settings?.docker_build_cpu_limit} cores</span>
